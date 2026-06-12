@@ -1,0 +1,33 @@
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.suo
+*.user
+
+# .NET
+bin/
+obj/
+TestResults/
+*.nupkg
+*.snupkg
+
+# Logs
+*.log
+
+# Variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Arquivos sensíveis
+appsettings.Production.json
+appsettings.Local.json
+
+# Banco / Docker local
+*.db
+*.sqlite
+docker-data/
