@@ -14,7 +14,6 @@ public class EventoFuncionario
     public bool Removido { get; set; } = false;
     public string? MotivoRemocao { get; set; }
 
-    public Guid? PagamentoItemId { get; set; }
     public PagamentoItem? PagamentoItem { get; set; }
 
     public Guid? UsuarioCriacaoId { get; set; }
