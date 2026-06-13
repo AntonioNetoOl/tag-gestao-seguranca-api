@@ -13,6 +13,8 @@ builder.Services.AddDbContext<TagDbContext>(options =>
         .UseSnakeCaseNamingConvention();
 });
 
+builder.Services.AddControllers();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
@@ -29,6 +31,8 @@ var app = builder.Build();
 
 app.UseHttpsRedirection();
 app.UseCors("FrontendPolicy");
+
+app.MapControllers();
 
 app.MapGet("/health", () => Results.Ok(new
 {
