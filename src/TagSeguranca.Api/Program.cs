@@ -1,4 +1,17 @@
+using Microsoft.EntityFrameworkCore;
+using TagSeguranca.Api.Infrastructure.Persistence;
+
 var builder = WebApplication.CreateBuilder(args);
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Connection string 'DefaultConnection' não configurada.");
+
+builder.Services.AddDbContext<TagDbContext>(options =>
+{
+    options
+        .UseNpgsql(connectionString)
+        .UseSnakeCaseNamingConvention();
+});
 
 builder.Services.AddCors(options =>
 {
@@ -21,6 +34,7 @@ app.MapGet("/health", () => Results.Ok(new
 {
     status = "ok",
     service = "TAG Gestão de Segurança API",
+    environment = app.Environment.EnvironmentName,
     timestamp = DateTimeOffset.UtcNow
 }));
 
