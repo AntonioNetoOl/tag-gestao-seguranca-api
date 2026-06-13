@@ -31,3 +31,5 @@ appsettings.Local.json
 *.db
 *.sqlite
 docker-data/
+
+.vs/
