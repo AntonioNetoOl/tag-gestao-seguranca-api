@@ -3,6 +3,7 @@ using TagSeguranca.Api.Infrastructure.Persistence;
 using TagSeguranca.Api.Application.Eventos.Services;
 using TagSeguranca.Api.Infrastructure.BackgroundServices;
 using TagSeguranca.Api.Application.Relatorios.Services;
+using Microsoft.OpenApi;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -35,7 +36,30 @@ builder.Services.AddCors(options =>
     });
 });
 
+builder.Services.AddEndpointsApiExplorer();
+
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "TAG Gestão de Segurança API",
+        Version = "v1",
+        Description = "API para gestão de funcionários, casas, tipos de evento, eventos, escalas, pagamentos e dashboard da TAG."
+    });
+});
+
 var app = builder.Build();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "TAG Gestão de Segurança API v1");
+        options.RoutePrefix = "swagger";
+    });
+}
 
 app.UseHttpsRedirection();
 app.UseCors("FrontendPolicy");
