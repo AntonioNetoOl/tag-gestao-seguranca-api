@@ -4,6 +4,14 @@ using TagSeguranca.Api.Application.Eventos.Services;
 using TagSeguranca.Api.Infrastructure.BackgroundServices;
 using TagSeguranca.Api.Application.Relatorios.Services;
 using Microsoft.OpenApi;
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.IdentityModel.Tokens;
+using TagSeguranca.Api.Application.Auth;
+using TagSeguranca.Api.Domain.Entities;
+using TagSeguranca.Api.Infrastructure.Seed;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -48,7 +56,48 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
+
+builder.Services.AddScoped<JwtTokenService>();
+builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
+
+var jwtSecret = builder.Configuration["Jwt:Secret"];
+var jwtIssuer = builder.Configuration["Jwt:Issuer"];
+var jwtAudience = builder.Configuration["Jwt:Audience"];
+
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    throw new InvalidOperationException("Configuração Jwt:Secret não encontrada.");
+}
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidIssuer = jwtIssuer,
+
+            ValidateAudience = true,
+            ValidAudience = jwtAudience,
+
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.FromMinutes(2)
+        };
+    });
+
+builder.Services.AddAuthorization();
+
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    await UsuarioMasterSeeder.SeedAsync(scope.ServiceProvider);
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -62,9 +111,14 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
 app.UseCors("FrontendPolicy");
 
-app.MapControllers();
+app.UseAuthentication();
+
+app.UseAuthorization();
+
+app.MapControllers().RequireAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new
 {
