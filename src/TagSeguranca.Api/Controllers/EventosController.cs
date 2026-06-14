@@ -4,6 +4,7 @@ using TagSeguranca.Api.Application.Eventos;
 using TagSeguranca.Api.Domain.Entities;
 using TagSeguranca.Api.Domain.Enums;
 using TagSeguranca.Api.Infrastructure.Persistence;
+using TagSeguranca.Api.Application.Eventos.Services;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -12,10 +13,24 @@ namespace TagSeguranca.Api.Controllers;
 public class EventosController : BaseApiController
 {
     private readonly TagDbContext _context;
+    private readonly EventoFinalizacaoService _finalizacaoService;
 
-    public EventosController(TagDbContext context)
+    public EventosController(
+        TagDbContext context,
+        EventoFinalizacaoService finalizacaoService)
     {
         _context = context;
+        _finalizacaoService = finalizacaoService;
+    }
+
+    [HttpPost("finalizar-vencidos")]
+    public async Task<ActionResult<EventoFinalizacaoResultado>> FinalizarVencidos(
+    CancellationToken cancellationToken)
+    {
+        var resultado = await _finalizacaoService
+            .FinalizarEventosVencidosAsync(cancellationToken);
+
+        return Ok(resultado);
     }
 
     [HttpGet]

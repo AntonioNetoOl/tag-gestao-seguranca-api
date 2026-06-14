@@ -1,5 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using TagSeguranca.Api.Infrastructure.Persistence;
+using TagSeguranca.Api.Application.Eventos.Services;
+using TagSeguranca.Api.Infrastructure.BackgroundServices;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +16,9 @@ builder.Services.AddDbContext<TagDbContext>(options =>
 });
 
 builder.Services.AddControllers();
+
+builder.Services.AddScoped<EventoFinalizacaoService>();
+builder.Services.AddHostedService<EventosFinalizacaoBackgroundService>();
 
 builder.Services.AddCors(options =>
 {

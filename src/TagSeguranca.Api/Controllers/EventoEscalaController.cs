@@ -4,6 +4,7 @@ using TagSeguranca.Api.Application.Escalas;
 using TagSeguranca.Api.Domain.Entities;
 using TagSeguranca.Api.Domain.Enums;
 using TagSeguranca.Api.Infrastructure.Persistence;
+using TagSeguranca.Api.Application.Eventos.Services;
 
 namespace TagSeguranca.Api.Controllers;
 
