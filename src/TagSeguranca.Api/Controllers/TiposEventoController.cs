@@ -8,7 +8,7 @@ namespace TagSeguranca.Api.Controllers;
 
 [ApiController]
 [Route("api/tipos-evento")]
-public class TiposEventoController : ControllerBase
+public class TiposEventoController : BaseApiController
 {
     private readonly TagDbContext _context;
 
@@ -67,10 +67,7 @@ public class TiposEventoController : ControllerBase
 
         if (tipo is null)
         {
-            return NotFound(new
-            {
-                mensagem = "Tipo de evento não encontrado."
-            });
+            return ApiNotFound("Tipo de evento não encontrado.");
         }
 
         return Ok(tipo);
@@ -85,10 +82,7 @@ public class TiposEventoController : ControllerBase
 
         if (erro is not null)
         {
-            return BadRequest(new
-            {
-                mensagem = erro
-            });
+            return ApiBadRequest(erro);
         }
 
         var nomeNormalizado = request.Nome.Trim();
@@ -98,10 +92,7 @@ public class TiposEventoController : ControllerBase
 
         if (jaExiste)
         {
-            return Conflict(new
-            {
-                mensagem = "Já existe um tipo de evento com este nome."
-            });
+            return ApiConflict("Já existe um tipo de evento com este nome.");
         }
 
         var tipo = new TipoEvento
@@ -134,10 +125,7 @@ public class TiposEventoController : ControllerBase
 
         if (erro is not null)
         {
-            return BadRequest(new
-            {
-                mensagem = erro
-            });
+            return ApiBadRequest(erro);
         }
 
         var tipo = await _context.TiposEvento
@@ -145,10 +133,7 @@ public class TiposEventoController : ControllerBase
 
         if (tipo is null)
         {
-            return NotFound(new
-            {
-                mensagem = "Tipo de evento não encontrado."
-            });
+            return ApiNotFound("Tipo de evento não encontrado.");
         }
 
         var nomeNormalizado = request.Nome.Trim();
@@ -161,10 +146,7 @@ public class TiposEventoController : ControllerBase
 
         if (jaExiste)
         {
-            return Conflict(new
-            {
-                mensagem = "Já existe outro tipo de evento com este nome."
-            });
+            return ApiConflict("Já existe outro tipo de evento com este nome.");
         }
 
         tipo.Nome = nomeNormalizado;
@@ -193,10 +175,7 @@ public class TiposEventoController : ControllerBase
 
         if (tipo is null)
         {
-            return NotFound(new
-            {
-                mensagem = "Tipo de evento não encontrado."
-            });
+            return ApiNotFound("Tipo de evento não encontrado.");
         }
 
         var possuiEventos = await _context.Eventos
@@ -204,10 +183,7 @@ public class TiposEventoController : ControllerBase
 
         if (possuiEventos)
         {
-            return Conflict(new
-            {
-                mensagem = "Não é possível excluir um tipo de evento que possui eventos vinculados."
-            });
+            return ApiConflict("Não é possível excluir um tipo de evento que possui eventos vinculados.");
         }
 
         _context.TiposEvento.Remove(tipo);
