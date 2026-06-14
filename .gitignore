@@ -37,3 +37,6 @@ docker-data/
 /relatorio-*.xlsx
 /escala-*.xlsx
 ~$*.xlsx
+
+/relatorio-*.pdf
+/escala-*.pdf

@@ -16,15 +16,18 @@ public class EventosController : BaseApiController
     private readonly TagDbContext _context;
     private readonly EventoFinalizacaoService _finalizacaoService;
     private readonly EscalaExcelService _escalaExcelService;
+    private readonly RelatoriosPdfService _relatoriosPdfService;
 
     public EventosController(
-        TagDbContext context,
-        EventoFinalizacaoService finalizacaoService,
-        EscalaExcelService escalaExcelService)
+    TagDbContext context,
+    EscalaExcelService escalaExcelService,
+    EventoFinalizacaoService eventoFinalizacaoService,
+    RelatoriosPdfService relatoriosPdfService)
     {
         _context = context;
-        _finalizacaoService = finalizacaoService;
         _escalaExcelService = escalaExcelService;
+        _finalizacaoService = eventoFinalizacaoService;
+        _relatoriosPdfService = relatoriosPdfService;
     }
 
     [HttpPost("finalizar-vencidos")]
@@ -159,6 +162,30 @@ public class EventosController : BaseApiController
             arquivo,
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             nomeArquivo);
+    }
+
+    [HttpGet("{id:guid}/escala/pdf")]
+    public async Task<IActionResult> ExportarEscalaPdf(
+    Guid id,
+    CancellationToken cancellationToken)
+    {
+        var arquivo = await _relatoriosPdfService.GerarEscalaEventoAsync(id, cancellationToken);
+
+        if (arquivo is null)
+        {
+            return NotFound(new
+            {
+                mensagem = "Evento não encontrado."
+            });
+        }
+
+        var nomeArquivo = $"escala-evento-{DateTime.Now:yyyyMMdd-HHmmss}.pdf";
+
+        return File(
+            arquivo,
+            "application/pdf",
+            nomeArquivo
+        );
     }
 
     [HttpPost]
