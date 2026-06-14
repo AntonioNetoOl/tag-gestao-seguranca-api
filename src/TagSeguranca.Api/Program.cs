@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TagSeguranca.Api.Infrastructure.Persistence;
 using TagSeguranca.Api.Application.Eventos.Services;
 using TagSeguranca.Api.Infrastructure.BackgroundServices;
+using TagSeguranca.Api.Application.Relatorios.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +20,8 @@ builder.Services.AddControllers();
 
 builder.Services.AddScoped<EventoFinalizacaoService>();
 builder.Services.AddHostedService<EventosFinalizacaoBackgroundService>();
+
+builder.Services.AddScoped<EscalaExcelService>();
 
 builder.Services.AddCors(options =>
 {

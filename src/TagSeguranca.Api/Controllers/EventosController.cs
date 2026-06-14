@@ -5,6 +5,7 @@ using TagSeguranca.Api.Domain.Entities;
 using TagSeguranca.Api.Domain.Enums;
 using TagSeguranca.Api.Infrastructure.Persistence;
 using TagSeguranca.Api.Application.Eventos.Services;
+using TagSeguranca.Api.Application.Relatorios.Services;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -14,13 +15,16 @@ public class EventosController : BaseApiController
 {
     private readonly TagDbContext _context;
     private readonly EventoFinalizacaoService _finalizacaoService;
+    private readonly EscalaExcelService _escalaExcelService;
 
     public EventosController(
         TagDbContext context,
-        EventoFinalizacaoService finalizacaoService)
+        EventoFinalizacaoService finalizacaoService,
+        EscalaExcelService escalaExcelService)
     {
         _context = context;
         _finalizacaoService = finalizacaoService;
+        _escalaExcelService = escalaExcelService;
     }
 
     [HttpPost("finalizar-vencidos")]
@@ -134,6 +138,27 @@ public class EventosController : BaseApiController
         }
 
         return Ok(evento);
+    }
+
+    [HttpGet("{id:guid}/escala/excel")]
+    public async Task<IActionResult> ExportarEscalaExcel(
+    Guid id,
+    CancellationToken cancellationToken)
+    {
+        var arquivo = await _escalaExcelService
+            .GerarEscalaEventoAsync(id, cancellationToken);
+
+        if (arquivo is null)
+        {
+            return ApiNotFound("Evento não encontrado.");
+        }
+
+        var nomeArquivo = $"escala-evento-{id}.xlsx";
+
+        return File(
+            arquivo,
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            nomeArquivo);
     }
 
     [HttpPost]
