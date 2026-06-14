@@ -5,6 +5,7 @@ using TagSeguranca.Api.Application.Common.Validations;
 using TagSeguranca.Api.Application.Funcionarios;
 using TagSeguranca.Api.Domain.Entities;
 using TagSeguranca.Api.Infrastructure.Persistence;
+using TagSeguranca.Api.Application.Common.Pagination;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -23,6 +24,7 @@ public class FuncionariosController : BaseApiController
     public async Task<ActionResult<IEnumerable<FuncionarioResponse>>> Listar(
         [FromQuery] string? busca,
         [FromQuery] bool? ativo,
+        [FromQuery] PagedRequest pagination,
         CancellationToken cancellationToken)
     {
         var query = _context.Funcionarios
@@ -45,25 +47,28 @@ public class FuncionariosController : BaseApiController
         }
 
         var funcionarios = await query
-            .OrderBy(f => f.NomeCompleto)
-            .Select(f => new FuncionarioResponse
-            {
-                Id = f.Id,
-                NomeCompleto = f.NomeCompleto,
-                Rg = f.Rg,
-                Cpf = f.Cpf,
-                ChavePix = f.ChavePix,
-                Telefone = f.Telefone,
-                Email = f.Email,
-                Funcao = f.Funcao,
-                Ativo = f.Ativo,
-                DataCriacao = f.DataCriacao,
-                DataAlteracao = f.DataAlteracao
-            })
-            .ToListAsync(cancellationToken);
+                .OrderBy(f => f.NomeCompleto)
+                .Select(f => new FuncionarioResponse
+                {
+                    Id = f.Id,
+                    NomeCompleto = f.NomeCompleto,
+                    Rg = f.Rg,
+                    Cpf = f.Cpf,
+                    ChavePix = f.ChavePix,
+                    Telefone = f.Telefone,
+                    Email = f.Email,
+                    Funcao = f.Funcao,
+                    Ativo = f.Ativo,
+                    DataCriacao = f.DataCriacao,
+                    DataAlteracao = f.DataAlteracao
+                })
+                .ToPagedResponseAsync(
+                    pagination.Page,
+                    pagination.PageSize,
+                    cancellationToken);
 
-        return Ok(funcionarios);
-    }
+                    return Ok(funcionarios);
+                }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<FuncionarioResponse>> ObterPorId(

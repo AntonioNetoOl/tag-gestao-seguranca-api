@@ -4,6 +4,7 @@ using TagSeguranca.Api.Application.Pagamentos;
 using TagSeguranca.Api.Domain.Entities;
 using TagSeguranca.Api.Domain.Enums;
 using TagSeguranca.Api.Infrastructure.Persistence;
+using TagSeguranca.Api.Application.Common.Pagination;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -23,6 +24,7 @@ public class PagamentosController : BaseApiController
     [FromQuery] string? busca,
     [FromQuery] DateTime? dataInicio,
     [FromQuery] DateTime? dataFim,
+    [FromQuery] PagedRequest pagination,
     CancellationToken cancellationToken)
     {
         var query = _context.Pagamentos
@@ -52,22 +54,25 @@ public class PagamentosController : BaseApiController
         }
 
         var pagamentos = await query
-            .OrderByDescending(p => p.DataPagamento)
-            .Select(p => new PagamentoResumoResponse
-            {
-                Id = p.Id,
-                FuncionarioId = p.FuncionarioId,
-                NomeCompleto = p.Funcionario.NomeCompleto,
-                Rg = p.Funcionario.Rg,
-                Cpf = p.Funcionario.Cpf,
-                MeioPagamento = ObterMeioPagamento(p.Funcionario.ChavePix, p.Funcionario.Cpf),
-                DataPagamento = p.DataPagamento,
-                ValorTotal = p.ValorTotal,
-                TotalHorasExtras = p.TotalHorasExtras,
-                QuantidadeEventos = p.QuantidadeEventos,
-                Status = p.Status.ToString()
-            })
-            .ToListAsync(cancellationToken);
+    .OrderByDescending(p => p.DataPagamento)
+    .Select(p => new PagamentoResumoResponse
+    {
+        Id = p.Id,
+        FuncionarioId = p.FuncionarioId,
+        NomeCompleto = p.Funcionario.NomeCompleto,
+        Rg = p.Funcionario.Rg,
+        Cpf = p.Funcionario.Cpf,
+        MeioPagamento = ObterMeioPagamento(p.Funcionario.ChavePix, p.Funcionario.Cpf),
+        DataPagamento = p.DataPagamento,
+        ValorTotal = p.ValorTotal,
+        TotalHorasExtras = p.TotalHorasExtras,
+        QuantidadeEventos = p.QuantidadeEventos,
+        Status = p.Status.ToString()
+    })
+    .ToPagedResponseAsync(
+        pagination.Page,
+        pagination.PageSize,
+        cancellationToken);
 
         return Ok(pagamentos);
     }

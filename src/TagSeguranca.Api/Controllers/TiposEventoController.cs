@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using TagSeguranca.Api.Application.TiposEvento;
 using TagSeguranca.Api.Domain.Entities;
 using TagSeguranca.Api.Infrastructure.Persistence;
+using TagSeguranca.Api.Application.Common.Pagination;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -20,6 +21,7 @@ public class TiposEventoController : BaseApiController
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TipoEventoResponse>>> Listar(
         [FromQuery] string? busca,
+        [FromQuery] PagedRequest pagination,
         CancellationToken cancellationToken)
     {
         var query = _context.TiposEvento
@@ -35,15 +37,18 @@ public class TiposEventoController : BaseApiController
         }
 
         var tipos = await query
-            .OrderBy(t => t.Nome)
-            .Select(t => new TipoEventoResponse
-            {
-                Id = t.Id,
-                Nome = t.Nome,
-                DataCriacao = t.DataCriacao,
-                DataAlteracao = t.DataAlteracao
-            })
-            .ToListAsync(cancellationToken);
+    .OrderBy(t => t.Nome)
+    .Select(t => new TipoEventoResponse
+    {
+        Id = t.Id,
+        Nome = t.Nome,
+        DataCriacao = t.DataCriacao,
+        DataAlteracao = t.DataAlteracao
+    })
+    .ToPagedResponseAsync(
+        pagination.Page,
+        pagination.PageSize,
+        cancellationToken);
 
         return Ok(tipos);
     }

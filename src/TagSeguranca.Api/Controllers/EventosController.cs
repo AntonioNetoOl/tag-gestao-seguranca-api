@@ -6,6 +6,7 @@ using TagSeguranca.Api.Domain.Enums;
 using TagSeguranca.Api.Infrastructure.Persistence;
 using TagSeguranca.Api.Application.Eventos.Services;
 using TagSeguranca.Api.Application.Relatorios.Services;
+using TagSeguranca.Api.Application.Common.Pagination;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -47,6 +48,7 @@ public class EventosController : BaseApiController
         [FromQuery] DateTime? dataFim,
         [FromQuery] string? nome,
         [FromQuery] EventoStatus? status,
+        [FromQuery] PagedRequest pagination,
         CancellationToken cancellationToken)
     {
         var query = _context.Eventos
@@ -82,27 +84,30 @@ public class EventosController : BaseApiController
         }
 
         var eventos = await query
-            .OrderBy(e => e.DataEvento)
-            .ThenBy(e => e.HoraInicio)
-            .Select(e => new EventoResponse
-            {
-                Id = e.Id,
-                CasaId = e.CasaId,
-                CasaNome = e.Casa.Nome,
-                TipoEventoId = e.TipoEventoId,
-                TipoEventoNome = e.TipoEvento.Nome,
-                Nome = e.Nome,
-                DataEvento = e.DataEvento,
-                HoraInicio = e.HoraInicio,
-                HoraFim = e.HoraFim,
-                ValorDiaria = e.ValorDiaria,
-                ValorHoraExtra = e.ValorHoraExtra,
-                Status = e.Status.ToString(),
-                QuantidadeFuncionarios = e.Funcionarios.Count(f => !f.Removido),
-                DataCriacao = e.DataCriacao,
-                DataAlteracao = e.DataAlteracao
-            })
-            .ToListAsync(cancellationToken);
+    .OrderBy(e => e.DataEvento)
+    .ThenBy(e => e.HoraInicio)
+    .Select(e => new EventoResponse
+    {
+        Id = e.Id,
+        CasaId = e.CasaId,
+        CasaNome = e.Casa.Nome,
+        TipoEventoId = e.TipoEventoId,
+        TipoEventoNome = e.TipoEvento.Nome,
+        Nome = e.Nome,
+        DataEvento = e.DataEvento,
+        HoraInicio = e.HoraInicio,
+        HoraFim = e.HoraFim,
+        ValorDiaria = e.ValorDiaria,
+        ValorHoraExtra = e.ValorHoraExtra,
+        Status = e.Status.ToString(),
+        QuantidadeFuncionarios = e.Funcionarios.Count(f => !f.Removido),
+        DataCriacao = e.DataCriacao,
+        DataAlteracao = e.DataAlteracao
+    })
+    .ToPagedResponseAsync(
+        pagination.Page,
+        pagination.PageSize,
+        cancellationToken);
 
         return Ok(eventos);
     }
