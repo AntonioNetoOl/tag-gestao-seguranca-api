@@ -8,7 +8,7 @@ namespace TagSeguranca.Api.Controllers;
 
 [ApiController]
 [Route("api/casas")]
-public class CasasController : ControllerBase
+public class CasasController : BaseApiController
 {
     private readonly TagDbContext _context;
 
@@ -72,10 +72,7 @@ public class CasasController : ControllerBase
 
         if (casa is null)
         {
-            return NotFound(new
-            {
-                mensagem = "Casa não encontrada."
-            });
+            return ApiNotFound("Casa não encontrada.");
         }
 
         return Ok(casa);
@@ -90,10 +87,7 @@ public class CasasController : ControllerBase
 
         if (erro is not null)
         {
-            return BadRequest(new
-            {
-                mensagem = erro
-            });
+            return ApiBadRequest(erro);   
         }
 
         var casa = new Casa
@@ -130,10 +124,7 @@ public class CasasController : ControllerBase
 
         if (erro is not null)
         {
-            return BadRequest(new
-            {
-                mensagem = erro
-            });
+            return ApiBadRequest(erro);
         }
 
         var casa = await _context.Casas
@@ -141,10 +132,7 @@ public class CasasController : ControllerBase
 
         if (casa is null)
         {
-            return NotFound(new
-            {
-                mensagem = "Casa não encontrada."
-            });
+            return ApiNotFound("Casa não encontrada.");
         }
 
         casa.Nome = request.Nome.Trim();
@@ -177,10 +165,8 @@ public class CasasController : ControllerBase
 
         if (casa is null)
         {
-            return NotFound(new
-            {
-                mensagem = "Casa não encontrada."
-            });
+            return ApiNotFound("Casa não encontrada.");
+ 
         }
 
         var possuiEventos = await _context.Eventos
@@ -188,10 +174,7 @@ public class CasasController : ControllerBase
 
         if (possuiEventos)
         {
-            return Conflict(new
-            {
-                mensagem = "Não é possível excluir uma casa que possui eventos vinculados."
-            });
+            return ApiConflict("Não é possível excluir uma casa que possui eventos vinculados.");
         }
 
         _context.Casas.Remove(casa);

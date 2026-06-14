@@ -10,7 +10,7 @@ namespace TagSeguranca.Api.Controllers;
 
 [ApiController]
 [Route("api/funcionarios")]
-public class FuncionariosController : ControllerBase
+public class FuncionariosController : BaseApiController
 {
     private readonly TagDbContext _context;
 
@@ -91,10 +91,7 @@ public class FuncionariosController : ControllerBase
 
         if (funcionario is null)
         {
-            return NotFound(new
-            {
-                mensagem = "Funcionário não encontrado."
-            });
+            return ApiNotFound("Funcionário não encontrado.");
         }
 
         return Ok(funcionario);
@@ -109,10 +106,7 @@ public class FuncionariosController : ControllerBase
 
         if (erro is not null)
         {
-            return BadRequest(new
-            {
-                mensagem = erro
-            });
+            return ApiBadRequest(erro);
         }
 
         var cpfNormalizado = CpfValidator.ApenasNumeros(request.Cpf);
@@ -123,10 +117,7 @@ public class FuncionariosController : ControllerBase
 
         if (cpfJaExiste)
         {
-            return Conflict(new
-            {
-                mensagem = "Já existe um funcionário cadastrado com este CPF."
-            });
+            return ApiConflict("Já existe um funcionário cadastrado com este CPF.");
         }
 
         var rgJaExiste = await _context.Funcionarios
@@ -134,10 +125,7 @@ public class FuncionariosController : ControllerBase
 
         if (rgJaExiste)
         {
-            return Conflict(new
-            {
-                mensagem = "Já existe um funcionário cadastrado com este RG."
-            });
+            return ApiConflict("Já existe um funcionário cadastrado com este RG.");
         }
 
         var funcionario = new Funcionario
@@ -171,10 +159,7 @@ public class FuncionariosController : ControllerBase
 
         if (erro is not null)
         {
-            return BadRequest(new
-            {
-                mensagem = erro
-            });
+            return ApiBadRequest(erro);
         }
 
         var funcionario = await _context.Funcionarios
@@ -182,10 +167,7 @@ public class FuncionariosController : ControllerBase
 
         if (funcionario is null)
         {
-            return NotFound(new
-            {
-                mensagem = "Funcionário não encontrado."
-            });
+            return ApiNotFound("Funcionário não encontrado.");
         }
 
         var cpfNormalizado = CpfValidator.ApenasNumeros(request.Cpf);
@@ -196,10 +178,7 @@ public class FuncionariosController : ControllerBase
 
         if (cpfJaExiste)
         {
-            return Conflict(new
-            {
-                mensagem = "Já existe outro funcionário cadastrado com este CPF."
-            });
+            return ApiConflict("Já existe outro funcionário cadastrado com este CPF.");
         }
 
         var rgJaExiste = await _context.Funcionarios
@@ -207,10 +186,7 @@ public class FuncionariosController : ControllerBase
 
         if (rgJaExiste)
         {
-            return Conflict(new
-            {
-                mensagem = "Já existe outro funcionário cadastrado com este RG."
-            });
+            return ApiConflict("Já existe outro funcionário cadastrado com este RG.");
         }
 
         funcionario.NomeCompleto = request.NomeCompleto.Trim();
@@ -237,10 +213,7 @@ public class FuncionariosController : ControllerBase
 
         if (funcionario is null)
         {
-            return NotFound(new
-            {
-                mensagem = "Funcionário não encontrado."
-            });
+            return ApiNotFound("Funcionário não encontrado.");
         }
 
         if (!funcionario.Ativo)
@@ -266,10 +239,7 @@ public class FuncionariosController : ControllerBase
 
         if (funcionario is null)
         {
-            return NotFound(new
-            {
-                mensagem = "Funcionário não encontrado."
-            });
+            return ApiNotFound("Funcionário não encontrado.");
         }
 
         if (funcionario.Ativo)
