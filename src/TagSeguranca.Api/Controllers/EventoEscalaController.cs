@@ -206,6 +206,135 @@ public class EscalasController : BaseApiController
         return NoContent();
     }
 
+    [HttpPost("substituir")]
+    public async Task<ActionResult<EventoFuncionarioResponse>> Substituir(
+    Guid eventoId,
+    [FromBody] SubstituirFuncionarioEventoRequest request,
+    CancellationToken cancellationToken)
+    {
+        if (request.FuncionarioAntigoId == Guid.Empty)
+        {
+            return ApiBadRequest("O funcionário antigo é obrigatório.");
+        }
+
+        if (request.FuncionarioNovoId == Guid.Empty)
+        {
+            return ApiBadRequest("O funcionário novo é obrigatório.");
+        }
+
+        if (request.FuncionarioAntigoId == request.FuncionarioNovoId)
+        {
+            return ApiBadRequest("O funcionário novo deve ser diferente do funcionário antigo.");
+        }
+
+        var evento = await _context.Eventos
+            .FirstOrDefaultAsync(e => e.Id == eventoId, cancellationToken);
+
+        if (evento is null)
+        {
+            return ApiNotFound("Evento não encontrado.");
+        }
+
+        if (evento.Status == EventoStatus.Cancelado)
+        {
+            return ApiConflict("Evento cancelado não pode ter escala alterada.");
+        }
+
+        var vinculoAntigo = await _context.EventoFuncionarios
+            .FirstOrDefaultAsync(
+                ef => ef.EventoId == eventoId &&
+                      ef.FuncionarioId == request.FuncionarioAntigoId,
+                cancellationToken);
+
+        if (vinculoAntigo is null || vinculoAntigo.Removido)
+        {
+            return ApiNotFound("Funcionário antigo não encontrado na escala do evento.");
+        }
+
+        if (vinculoAntigo.Pago)
+        {
+            return ApiConflict("Funcionário já pago não pode ser substituído.");
+        }
+
+        var funcionarioNovo = await _context.Funcionarios
+            .FirstOrDefaultAsync(
+                f => f.Id == request.FuncionarioNovoId,
+                cancellationToken);
+
+        if (funcionarioNovo is null)
+        {
+            return ApiBadRequest("Funcionário novo informado não existe.");
+        }
+
+        if (!funcionarioNovo.Ativo)
+        {
+            return ApiConflict("Funcionário inativo não pode ser vinculado a novos eventos.");
+        }
+
+        var vinculoNovoExistente = await _context.EventoFuncionarios
+            .FirstOrDefaultAsync(
+                ef => ef.EventoId == eventoId &&
+                      ef.FuncionarioId == request.FuncionarioNovoId,
+                cancellationToken);
+
+        if (vinculoNovoExistente is not null && !vinculoNovoExistente.Removido)
+        {
+            return ApiConflict("Funcionário novo já está vinculado a este evento.");
+        }
+
+        if (vinculoNovoExistente is not null && vinculoNovoExistente.Pago)
+        {
+            return ApiConflict("Funcionário novo já possui vínculo pago neste evento e não pode ser reativado.");
+        }
+
+        await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
+
+        var agora = DateTime.UtcNow;
+
+        vinculoAntigo.Removido = true;
+        vinculoAntigo.MotivoRemocao = string.IsNullOrWhiteSpace(request.Motivo)
+            ? "Substituído por outro funcionário"
+            : request.Motivo.Trim();
+        vinculoAntigo.DataAlteracao = agora;
+
+        EventoFuncionario vinculoNovo;
+
+        if (vinculoNovoExistente is not null)
+        {
+            vinculoNovoExistente.Removido = false;
+            vinculoNovoExistente.MotivoRemocao = null;
+            vinculoNovoExistente.DataAlteracao = agora;
+
+            vinculoNovo = vinculoNovoExistente;
+        }
+        else
+        {
+            vinculoNovo = new EventoFuncionario
+            {
+                EventoId = eventoId,
+                FuncionarioId = request.FuncionarioNovoId,
+                Pago = false,
+                Removido = false,
+                DataCriacao = agora
+            };
+
+            _context.EventoFuncionarios.Add(vinculoNovo);
+        }
+
+        if (evento.Status == EventoStatus.Rascunho)
+        {
+            evento.Status = EventoStatus.Escalado;
+            evento.DataAlteracao = agora;
+        }
+
+        await _context.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+
+        var response = await BuscarResponsePorId(vinculoNovo.Id, cancellationToken);
+
+        return Ok(response);
+    }
+
     private async Task<EventoFuncionarioResponse> BuscarResponsePorId(
         Guid id,
         CancellationToken cancellationToken)
