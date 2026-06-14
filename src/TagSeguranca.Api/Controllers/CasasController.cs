@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using TagSeguranca.Api.Application.Casas;
 using TagSeguranca.Api.Domain.Entities;
 using TagSeguranca.Api.Infrastructure.Persistence;
+using TagSeguranca.Api.Application.Common.Pagination;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -20,6 +21,7 @@ public class CasasController : BaseApiController
     [HttpGet]
     public async Task<ActionResult<IEnumerable<CasaResponse>>> Listar(
         [FromQuery] string? busca,
+        [FromQuery] PagedRequest pagination,
         CancellationToken cancellationToken)
     {
         var query = _context.Casas
@@ -36,17 +38,20 @@ public class CasasController : BaseApiController
         }
 
         var casas = await query
-            .OrderBy(c => c.Nome)
-            .Select(c => new CasaResponse
-            {
-                Id = c.Id,
-                Nome = c.Nome,
-                Endereco = c.Endereco,
-                Cep = c.Cep,
-                DataCriacao = c.DataCriacao,
-                DataAlteracao = c.DataAlteracao
-            })
-            .ToListAsync(cancellationToken);
+    .OrderBy(c => c.Nome)
+    .Select(c => new CasaResponse
+    {
+        Id = c.Id,
+        Nome = c.Nome,
+        Endereco = c.Endereco,
+        Cep = c.Cep,
+        DataCriacao = c.DataCriacao,
+        DataAlteracao = c.DataAlteracao
+    })
+    .ToPagedResponseAsync(
+        pagination.Page,
+        pagination.PageSize,
+        cancellationToken);
 
         return Ok(casas);
     }
