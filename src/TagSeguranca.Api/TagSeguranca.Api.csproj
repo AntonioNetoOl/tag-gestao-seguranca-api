@@ -6,6 +6,7 @@
     <UserSecretsId>18d3d667-c767-485b-b604-c67014f1601b</UserSecretsId>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.105.0" />
     <PackageReference Include="EFCore.NamingConventions" Version="8.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.*">
