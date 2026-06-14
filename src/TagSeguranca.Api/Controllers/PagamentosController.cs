@@ -18,6 +18,60 @@ public class PagamentosController : BaseApiController
         _context = context;
     }
 
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<PagamentoResumoResponse>>> Listar(
+    [FromQuery] string? busca,
+    [FromQuery] DateTime? dataInicio,
+    [FromQuery] DateTime? dataFim,
+    CancellationToken cancellationToken)
+    {
+        var query = _context.Pagamentos
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(busca))
+        {
+            var termo = busca.Trim().ToLower();
+
+            query = query.Where(p =>
+                p.Funcionario.NomeCompleto.ToLower().Contains(termo) ||
+                p.Funcionario.Rg.ToLower().Contains(termo) ||
+                p.Funcionario.Cpf.ToLower().Contains(termo));
+        }
+
+        if (dataInicio.HasValue)
+        {
+            var inicio = DateTime.SpecifyKind(dataInicio.Value.Date, DateTimeKind.Utc);
+            query = query.Where(p => p.DataPagamento >= inicio);
+        }
+
+        if (dataFim.HasValue)
+        {
+            var fimExclusivo = DateTime.SpecifyKind(dataFim.Value.Date.AddDays(1), DateTimeKind.Utc);
+            query = query.Where(p => p.DataPagamento < fimExclusivo);
+        }
+
+        var pagamentos = await query
+            .OrderByDescending(p => p.DataPagamento)
+            .Select(p => new PagamentoResumoResponse
+            {
+                Id = p.Id,
+                FuncionarioId = p.FuncionarioId,
+                NomeCompleto = p.Funcionario.NomeCompleto,
+                Rg = p.Funcionario.Rg,
+                Cpf = p.Funcionario.Cpf,
+                MeioPagamento = ObterMeioPagamento(p.Funcionario.ChavePix, p.Funcionario.Cpf),
+                DataPagamento = p.DataPagamento,
+                ValorTotal = p.ValorTotal,
+                TotalHorasExtras = p.TotalHorasExtras,
+                QuantidadeEventos = p.QuantidadeEventos,
+                Status = p.Status.ToString()
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(pagamentos);
+    }
+
     [HttpPost("confirmar")]
     public async Task<ActionResult<PagamentoConfirmadoResponse>> Confirmar(
         [FromBody] ConfirmarPagamentoRequest request,
