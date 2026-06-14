@@ -6,6 +6,7 @@ using TagSeguranca.Api.Application.Funcionarios;
 using TagSeguranca.Api.Domain.Entities;
 using TagSeguranca.Api.Infrastructure.Persistence;
 using TagSeguranca.Api.Application.Common.Pagination;
+using TagSeguranca.Api.Application.Common.Options;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -69,6 +70,32 @@ public class FuncionariosController : BaseApiController
 
                     return Ok(funcionarios);
                 }
+
+    [HttpGet("opcoes")]
+    public async Task<ActionResult<IEnumerable<OptionResponse>>> ListarOpcoes(
+    [FromQuery] bool apenasAtivos = true,
+    CancellationToken cancellationToken = default)
+    {
+        var query = _context.Funcionarios
+            .AsNoTracking()
+            .AsQueryable();
+
+        if (apenasAtivos)
+        {
+            query = query.Where(f => f.Ativo);
+        }
+
+        var opcoes = await query
+            .OrderBy(f => f.NomeCompleto)
+            .Select(f => new OptionResponse
+            {
+                Id = f.Id,
+                Nome = f.NomeCompleto
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(opcoes);
+    }
 
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<FuncionarioResponse>> ObterPorId(

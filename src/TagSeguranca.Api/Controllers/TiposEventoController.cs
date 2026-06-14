@@ -4,6 +4,7 @@ using TagSeguranca.Api.Application.TiposEvento;
 using TagSeguranca.Api.Domain.Entities;
 using TagSeguranca.Api.Infrastructure.Persistence;
 using TagSeguranca.Api.Application.Common.Pagination;
+using TagSeguranca.Api.Application.Common.Options;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -51,6 +52,23 @@ public class TiposEventoController : BaseApiController
         cancellationToken);
 
         return Ok(tipos);
+    }
+
+    [HttpGet("opcoes")]
+    public async Task<ActionResult<IEnumerable<OptionResponse>>> ListarOpcoes(
+    CancellationToken cancellationToken)
+    {
+        var opcoes = await _context.TiposEvento
+            .AsNoTracking()
+            .OrderBy(t => t.Nome)
+            .Select(t => new OptionResponse
+            {
+                Id = t.Id,
+                Nome = t.Nome
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(opcoes);
     }
 
     [HttpGet("{id:guid}")]
