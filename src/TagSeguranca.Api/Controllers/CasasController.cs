@@ -4,6 +4,7 @@ using TagSeguranca.Api.Application.Casas;
 using TagSeguranca.Api.Domain.Entities;
 using TagSeguranca.Api.Infrastructure.Persistence;
 using TagSeguranca.Api.Application.Common.Pagination;
+using TagSeguranca.Api.Application.Common.Options;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -54,6 +55,23 @@ public class CasasController : BaseApiController
         cancellationToken);
 
         return Ok(casas);
+    }
+
+    [HttpGet("opcoes")]
+    public async Task<ActionResult<IEnumerable<OptionResponse>>> ListarOpcoes(
+    CancellationToken cancellationToken)
+    {
+        var opcoes = await _context.Casas
+            .AsNoTracking()
+            .OrderBy(c => c.Nome)
+            .Select(c => new OptionResponse
+            {
+                Id = c.Id,
+                Nome = c.Nome
+            })
+            .ToListAsync(cancellationToken);
+
+        return Ok(opcoes);
     }
 
     [HttpGet("{id:guid}")]
