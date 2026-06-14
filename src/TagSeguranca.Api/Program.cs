@@ -34,6 +34,7 @@ builder.Services.AddScoped<EventoFinalizacaoService>();
 builder.Services.AddHostedService<EventosFinalizacaoBackgroundService>();
 
 builder.Services.AddScoped<EscalaExcelService>();
+builder.Services.AddScoped<PagamentosExcelService>();
 
 builder.Services.AddCors(options =>
 {
