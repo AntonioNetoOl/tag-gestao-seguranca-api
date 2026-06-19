@@ -12,6 +12,7 @@ public class TagDbContext : DbContext
 
     public DbSet<Usuario> Usuarios => Set<Usuario>();
     public DbSet<Funcionario> Funcionarios => Set<Funcionario>();
+    public DbSet<FuncaoFuncionario> FuncoesFuncionario => Set<FuncaoFuncionario>();
     public DbSet<Casa> Casas => Set<Casa>();
     public DbSet<TipoEvento> TiposEvento => Set<TipoEvento>();
     public DbSet<Evento> Eventos => Set<Evento>();
@@ -52,6 +53,17 @@ public class TagDbContext : DbContext
             entity.Property(x => x.Telefone).HasMaxLength(30);
             entity.Property(x => x.Email).HasMaxLength(150);
             entity.Property(x => x.Funcao).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Ativo).HasDefaultValue(true);
+        });
+
+        modelBuilder.Entity<FuncaoFuncionario>(entity =>
+        {
+            entity.ToTable("funcoes_funcionario");
+
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.Nome).IsUnique();
+
+            entity.Property(x => x.Nome).HasMaxLength(100).IsRequired();
             entity.Property(x => x.Ativo).HasDefaultValue(true);
         });
 
