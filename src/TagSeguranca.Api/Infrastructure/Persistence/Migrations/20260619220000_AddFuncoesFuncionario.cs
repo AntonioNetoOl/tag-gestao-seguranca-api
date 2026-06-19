@@ -31,6 +31,15 @@ namespace TagSeguranca.Api.Infrastructure.Persistence.Migrations
                 table: "funcoes_funcionario",
                 column: "nome",
                 unique: true);
+
+            migrationBuilder.Sql("""
+                INSERT INTO funcoes_funcionario (id, nome, ativo, data_criacao)
+                VALUES
+                    ('11111111-1111-1111-1111-111111111001', 'Segurança', true, NOW()),
+                    ('11111111-1111-1111-1111-111111111002', 'Líder', true, NOW()),
+                    ('11111111-1111-1111-1111-111111111003', 'Coordenador', true, NOW())
+                ON CONFLICT (nome) DO NOTHING;
+                """);
         }
 
         protected override void Down(MigrationBuilder migrationBuilder)
