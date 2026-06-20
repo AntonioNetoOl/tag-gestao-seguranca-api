@@ -9,4 +9,6 @@ public class FuncaoFuncionario
     public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
     public Guid? UsuarioAlteracaoId { get; set; }
     public DateTime? DataAlteracao { get; set; }
+
+    public ICollection<Funcionario> Funcionarios { get; set; } = new List<Funcionario>();
 }
