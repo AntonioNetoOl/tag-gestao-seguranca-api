@@ -6,7 +6,6 @@ using TagSeguranca.Api.Application.Relatorios.Services;
 using Microsoft.OpenApi;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 using TagSeguranca.Api.Application.Auth;
@@ -23,16 +22,12 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 
 builder.Services.AddDbContext<TagDbContext>(options =>
 {
-    options
-        .UseNpgsql(connectionString)
-        .UseSnakeCaseNamingConvention();
+    options.UseNpgsql(connectionString).UseSnakeCaseNamingConvention();
 });
 
 builder.Services.AddControllers();
-
 builder.Services.AddScoped<EventoFinalizacaoService>();
 builder.Services.AddHostedService<EventosFinalizacaoBackgroundService>();
-
 builder.Services.AddScoped<EscalaExcelService>();
 builder.Services.AddScoped<PagamentosExcelService>();
 builder.Services.AddScoped<RelatoriosPdfService>();
@@ -41,16 +36,11 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("FrontendPolicy", policy =>
     {
-        policy
-            .AllowAnyHeader()
-            .AllowAnyMethod()
-            .AllowCredentials()
-            .SetIsOriginAllowed(_ => true);
+        policy.AllowAnyHeader().AllowAnyMethod().AllowCredentials().SetIsOriginAllowed(_ => true);
     });
 });
 
 builder.Services.AddEndpointsApiExplorer();
-
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
@@ -62,7 +52,6 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 builder.Services.Configure<JwtOptions>(builder.Configuration.GetSection("Jwt"));
-
 builder.Services.AddScoped<JwtTokenService>();
 builder.Services.AddScoped<IPasswordHasher<Usuario>, PasswordHasher<Usuario>>();
 
@@ -83,13 +72,10 @@ builder.Services
         {
             ValidateIssuer = true,
             ValidIssuer = jwtIssuer,
-
             ValidateAudience = true,
             ValidAudience = jwtAudience,
-
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
-
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromMinutes(2)
         };
@@ -101,13 +87,14 @@ var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
+    var context = scope.ServiceProvider.GetRequiredService<TagDbContext>();
+    await SchemaInitializer.EnsureFuncoesFuncionarioSchemaAsync(context);
     await UsuarioMasterSeeder.SeedAsync(scope.ServiceProvider);
 }
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-
     app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "TAG Gestão de Segurança API v1");
@@ -116,13 +103,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
 app.UseCors("FrontendPolicy");
-
 app.UseAuthentication();
-
 app.UseAuthorization();
-
 app.MapControllers().RequireAuthorization();
 
 app.MapGet("/health", () => Results.Ok(new
