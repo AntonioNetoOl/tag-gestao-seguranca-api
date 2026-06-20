@@ -32,6 +32,7 @@ erDiagram
         string chave_pix
         string telefone
         string email
+        uuid funcao_funcionario_id FK
         string funcao
         boolean ativo
     }
@@ -90,6 +91,7 @@ erDiagram
         decimal valor_total_item
     }
 
+    funcoes_funcionario ||--o{ funcionarios : define
     casas ||--o{ eventos : possui
     tipos_evento ||--o{ eventos : classifica
     eventos ||--o{ evento_funcionarios : escala
@@ -109,7 +111,13 @@ A entidade possui:
 - `ativo`: permite remover a função das opções sem excluir o registro.
 - campos de auditoria básica: `data_criacao`, `data_alteracao`, `usuario_criacao_id` e `usuario_alteracao_id`.
 
-No modelo atual, `funcionarios.funcao` permanece como texto para preservar compatibilidade com os dados existentes. A tela de funcionários passa a preencher esse texto a partir das opções cadastradas em `funcoes_funcionario`.
+O relacionamento principal é:
+
+```text
+funcoes_funcionario.id -> funcionarios.funcao_funcionario_id
+```
+
+O campo `funcionarios.funcao` permanece como texto desnormalizado para preservar compatibilidade com dados e relatórios existentes. Nas criações e alterações, a API grava `funcao_funcionario_id` e também sincroniza `funcao` com o nome da função selecionada.
 
 ## Pagamento pendente
 
@@ -135,4 +143,4 @@ Também existe o script SQL direto:
 database/scripts/20260619_add_funcoes_funcionario.sql
 ```
 
-O script cria a tabela `funcoes_funcionario`, cria o índice único por `nome` e insere as funções iniciais `Segurança`, `Líder` e `Coordenador` se ainda não existirem.
+O script cria a tabela `funcoes_funcionario`, cria o índice único por `nome`, cria `funcionarios.funcao_funcionario_id`, cria a FK e insere as funções iniciais `Segurança`, `Líder` e `Coordenador` se ainda não existirem.
