@@ -42,7 +42,8 @@ public class FuncoesFuncionarioController : BaseApiController
         }
 
         var funcoes = await query
-            .OrderBy(f => f.Nome)
+            .OrderByDescending(f => f.Ativo)
+            .ThenBy(f => f.Nome)
             .Select(f => new FuncaoFuncionarioResponse
             {
                 Id = f.Id,
