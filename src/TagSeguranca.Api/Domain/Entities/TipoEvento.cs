@@ -6,6 +6,8 @@ public class TipoEvento
 
     public string Nome { get; set; } = string.Empty;
 
+    public bool Ativo { get; set; } = true;
+
     public Guid? UsuarioCriacaoId { get; set; }
     public DateTime DataCriacao { get; set; } = DateTime.UtcNow;
     public Guid? UsuarioAlteracaoId { get; set; }
