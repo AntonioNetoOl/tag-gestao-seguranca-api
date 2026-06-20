@@ -8,5 +8,6 @@ public class FuncionarioRequest
     public string? ChavePix { get; set; }
     public string? Telefone { get; set; }
     public string? Email { get; set; }
+    public Guid FuncaoFuncionarioId { get; set; }
     public string Funcao { get; set; } = string.Empty;
 }

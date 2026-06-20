@@ -17,8 +17,8 @@ tag-gestao-seguranca
 - ASP.NET Core
 - C#
 - PostgreSQL
-- Entity Framework Core, em etapa posterior
-- JWT Auth, em etapa posterior
+- Entity Framework Core
+- JWT Auth
 - Exportação de relatórios em Excel
 - Rotina em background para finalização automática de eventos
 
@@ -40,6 +40,12 @@ Subir o PostgreSQL local:
 docker compose up -d
 ```
 
+Aplicar migrations do Entity Framework:
+
+```bash
+dotnet ef database update --project src/TagSeguranca.Api/TagSeguranca.Api.csproj
+```
+
 Executar a API:
 
 ```bash
@@ -52,6 +58,28 @@ Testar health check:
 GET /health
 ```
 
+## Cadastro de funções de funcionário
+
+A branch `feature/funcoes-backend` adiciona o cadastro mestre de funções de funcionário.
+
+Endpoints principais:
+
+```text
+GET    /api/funcoes-funcionario
+GET    /api/funcoes-funcionario/opcoes
+GET    /api/funcoes-funcionario/{id}
+POST   /api/funcoes-funcionario
+PUT    /api/funcoes-funcionario/{id}
+DELETE /api/funcoes-funcionario/{id}
+PATCH  /api/funcoes-funcionario/{id}/ativar
+```
+
+Para criar a tabela, use a migration do EF ou execute diretamente o script:
+
+```text
+database/scripts/20260619_add_funcoes_funcionario.sql
+```
+
 ## Status
 
-Projeto em fase inicial de estruturação do backend.
+Projeto em evolução incremental. O backend já possui autenticação JWT, cadastros mestres, eventos, escalas, pagamentos, relatórios e dashboard em desenvolvimento contínuo.
