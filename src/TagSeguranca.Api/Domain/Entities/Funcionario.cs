@@ -10,6 +10,8 @@ public class Funcionario
     public string? ChavePix { get; set; }
     public string? Telefone { get; set; }
     public string? Email { get; set; }
+    public Guid? FuncaoFuncionarioId { get; set; }
+    public FuncaoFuncionario? FuncaoFuncionario { get; set; }
     public string Funcao { get; set; } = string.Empty;
 
     public bool Ativo { get; set; } = true;
