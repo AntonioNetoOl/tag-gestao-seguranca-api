@@ -1,10 +1,14 @@
 using System;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using TagSeguranca.Api.Infrastructure.Persistence;
 
 #nullable disable
 
 namespace TagSeguranca.Api.Infrastructure.Persistence.Migrations
 {
+    [DbContext(typeof(TagDbContext))]
+    [Migration("20260619220000_AddFuncoesFuncionario")]
     public partial class AddFuncoesFuncionario : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
