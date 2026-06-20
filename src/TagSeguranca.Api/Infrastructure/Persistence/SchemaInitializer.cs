@@ -68,4 +68,18 @@ public static class SchemaInitializer
             END $$;
             """, cancellationToken);
     }
+
+    public static async Task EnsureTiposEventoSchemaAsync(TagDbContext context, CancellationToken cancellationToken = default)
+    {
+        await context.Database.ExecuteSqlRawAsync("""
+            ALTER TABLE tipos_evento
+                ADD COLUMN IF NOT EXISTS ativo boolean NOT NULL DEFAULT true;
+            """, cancellationToken);
+
+        await context.Database.ExecuteSqlRawAsync("""
+            UPDATE tipos_evento
+            SET ativo = true
+            WHERE ativo IS NULL;
+            """, cancellationToken);
+    }
 }
