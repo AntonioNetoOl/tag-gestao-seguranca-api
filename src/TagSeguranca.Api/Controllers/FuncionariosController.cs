@@ -45,7 +45,8 @@ public class FuncionariosController : BaseApiController
         }
 
         var funcionarios = await query
-            .OrderBy(f => f.NomeCompleto)
+            .OrderByDescending(f => f.Ativo)
+            .ThenBy(f => f.NomeCompleto)
             .Select(f => new FuncionarioResponse
             {
                 Id = f.Id,
