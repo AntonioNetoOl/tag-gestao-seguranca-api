@@ -67,6 +67,8 @@ public static class SchemaInitializer
                 END IF;
             END $$;
             """, cancellationToken);
+
+        await EnsureTiposEventoSchemaAsync(context, cancellationToken);
     }
 
     public static async Task EnsureTiposEventoSchemaAsync(TagDbContext context, CancellationToken cancellationToken = default)
