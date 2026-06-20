@@ -18,3 +18,30 @@ VALUES
     ('11111111-1111-1111-1111-111111111002', 'Líder', true, NOW()),
     ('11111111-1111-1111-1111-111111111003', 'Coordenador', true, NOW())
 ON CONFLICT (nome) DO NOTHING;
+
+ALTER TABLE funcionarios
+    ADD COLUMN IF NOT EXISTS funcao_funcionario_id uuid NULL;
+
+CREATE INDEX IF NOT EXISTS ix_funcionarios_funcao_funcionario_id
+    ON funcionarios (funcao_funcionario_id);
+
+UPDATE funcionarios f
+SET funcao_funcionario_id = ff.id
+FROM funcoes_funcionario ff
+WHERE lower(f.funcao) = lower(ff.nome)
+  AND f.funcao_funcionario_id IS NULL;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'fk_funcionarios_funcoes_funcionario_funcao_funcionario_id'
+    ) THEN
+        ALTER TABLE funcionarios
+            ADD CONSTRAINT fk_funcionarios_funcoes_funcionario_funcao_funcionario_id
+            FOREIGN KEY (funcao_funcionario_id)
+            REFERENCES funcoes_funcionario(id)
+            ON DELETE RESTRICT;
+    END IF;
+END $$;
