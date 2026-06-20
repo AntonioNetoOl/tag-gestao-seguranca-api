@@ -27,6 +27,12 @@ TestResults/
 appsettings.Production.json
 appsettings.Local.json
 
+# YAML local/sensível
+*.yml
+*.yaml
+!*.example.yml
+!*.example.yaml
+
 # Banco / Docker local
 *.db
 *.sqlite
