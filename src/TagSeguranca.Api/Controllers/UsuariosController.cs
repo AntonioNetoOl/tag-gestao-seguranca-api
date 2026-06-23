@@ -172,6 +172,11 @@ public class UsuariosController : BaseApiController
         if (usuario is null) return ApiNotFound("Usuário não encontrado.");
         if (usuario.Ativo) return NoContent();
 
+        if (await ExisteEmailAtivoAsync(usuario.Email, id, cancellationToken))
+        {
+            return ApiConflict("Já existe outro usuário ativo cadastrado com este e-mail.");
+        }
+
         usuario.Ativo = true;
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -190,11 +195,20 @@ public class UsuariosController : BaseApiController
         if (!string.IsNullOrWhiteSpace(request.Senha) && request.Senha.Length < 8) return "A senha deve ter pelo menos 8 caracteres.";
         if (!string.IsNullOrWhiteSpace(request.Senha) && request.Senha.Length > 100) return "A senha deve ter no máximo 100 caracteres.";
 
-        var email = request.Email.Trim().ToLower();
-        var emailJaExiste = await _context.Usuarios.AnyAsync(u => u.Id != idAtual && u.Email.ToLower() == email, cancellationToken);
-        if (emailJaExiste) return "Já existe um usuário cadastrado com este e-mail.";
+        if (await ExisteEmailAtivoAsync(request.Email, idAtual, cancellationToken))
+        {
+            return "Já existe um usuário ativo cadastrado com este e-mail.";
+        }
 
         return null;
+    }
+
+    private async Task<bool> ExisteEmailAtivoAsync(string email, Guid? idAtual, CancellationToken cancellationToken)
+    {
+        var emailNormalizado = email.Trim().ToLower();
+        var query = _context.Usuarios.Where(u => u.Ativo && u.Email.ToLower() == emailNormalizado);
+        if (idAtual.HasValue) query = query.Where(u => u.Id != idAtual.Value);
+        return await query.AnyAsync(cancellationToken);
     }
 
     private static bool PerfilEhValido(string perfil)

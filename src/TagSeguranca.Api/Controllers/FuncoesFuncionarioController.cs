@@ -121,12 +121,9 @@ public class FuncoesFuncionarioController : BaseApiController
 
         var nomeNormalizado = NormalizarNome(request.Nome);
 
-        var nomeJaExiste = await _context.FuncoesFuncionario
-            .AnyAsync(f => f.Nome.ToLower() == nomeNormalizado.ToLower(), cancellationToken);
-
-        if (nomeJaExiste)
+        if (await ExisteNomeAtivoAsync(nomeNormalizado, null, cancellationToken))
         {
-            return ApiConflict("Já existe uma função cadastrada com este nome.");
+            return ApiConflict("Já existe uma função ativa cadastrada com este nome.");
         }
 
         var funcao = new FuncaoFuncionario
@@ -165,12 +162,9 @@ public class FuncoesFuncionarioController : BaseApiController
 
         var nomeNormalizado = NormalizarNome(request.Nome);
 
-        var nomeJaExiste = await _context.FuncoesFuncionario
-            .AnyAsync(f => f.Id != id && f.Nome.ToLower() == nomeNormalizado.ToLower(), cancellationToken);
-
-        if (nomeJaExiste)
+        if (await ExisteNomeAtivoAsync(nomeNormalizado, id, cancellationToken))
         {
-            return ApiConflict("Já existe outra função cadastrada com este nome.");
+            return ApiConflict("Já existe outra função ativa cadastrada com este nome.");
         }
 
         funcao.Nome = nomeNormalizado;
@@ -221,12 +215,25 @@ public class FuncoesFuncionarioController : BaseApiController
             return NoContent();
         }
 
+        if (await ExisteNomeAtivoAsync(funcao.Nome, id, cancellationToken))
+        {
+            return ApiConflict("Já existe outra função ativa cadastrada com este nome.");
+        }
+
         funcao.Ativo = true;
         funcao.DataAlteracao = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
 
         return NoContent();
+    }
+
+    private async Task<bool> ExisteNomeAtivoAsync(string nome, Guid? idAtual, CancellationToken cancellationToken)
+    {
+        var nomeNormalizado = nome.Trim().ToLower();
+        var query = _context.FuncoesFuncionario.Where(f => f.Ativo && f.Nome.ToLower() == nomeNormalizado);
+        if (idAtual.HasValue) query = query.Where(f => f.Id != idAtual.Value);
+        return await query.AnyAsync(cancellationToken);
     }
 
     private static string? ValidarRequest(FuncaoFuncionarioRequest request)

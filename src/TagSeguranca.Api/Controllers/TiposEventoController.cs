@@ -119,12 +119,9 @@ public class TiposEventoController : BaseApiController
 
         var nomeNormalizado = request.Nome.Trim();
 
-        var jaExiste = await _context.TiposEvento
-            .AnyAsync(t => t.Nome.ToLower() == nomeNormalizado.ToLower(), cancellationToken);
-
-        if (jaExiste)
+        if (await ExisteNomeAtivoAsync(nomeNormalizado, null, cancellationToken))
         {
-            return ApiConflict("Já existe um tipo de evento com este nome.");
+            return ApiConflict("Já existe um tipo de evento ativo com este nome.");
         }
 
         var tipo = new TipoEvento
@@ -159,12 +156,9 @@ public class TiposEventoController : BaseApiController
 
         var nomeNormalizado = request.Nome.Trim();
 
-        var jaExiste = await _context.TiposEvento
-            .AnyAsync(t => t.Id != id && t.Nome.ToLower() == nomeNormalizado.ToLower(), cancellationToken);
-
-        if (jaExiste)
+        if (await ExisteNomeAtivoAsync(nomeNormalizado, id, cancellationToken))
         {
-            return ApiConflict("Já existe outro tipo de evento com este nome.");
+            return ApiConflict("Já existe outro tipo de evento ativo com este nome.");
         }
 
         tipo.Nome = nomeNormalizado;
@@ -196,11 +190,24 @@ public class TiposEventoController : BaseApiController
         if (tipo is null) return ApiNotFound("Tipo de evento não encontrado.");
         if (tipo.Ativo) return NoContent();
 
+        if (await ExisteNomeAtivoAsync(tipo.Nome, id, cancellationToken))
+        {
+            return ApiConflict("Já existe outro tipo de evento ativo com este nome.");
+        }
+
         tipo.Ativo = true;
         tipo.DataAlteracao = DateTime.UtcNow;
 
         await _context.SaveChangesAsync(cancellationToken);
         return NoContent();
+    }
+
+    private async Task<bool> ExisteNomeAtivoAsync(string nome, Guid? idAtual, CancellationToken cancellationToken)
+    {
+        var nomeNormalizado = nome.Trim().ToLower();
+        var query = _context.TiposEvento.Where(t => t.Ativo && t.Nome.ToLower() == nomeNormalizado);
+        if (idAtual.HasValue) query = query.Where(t => t.Id != idAtual.Value);
+        return await query.AnyAsync(cancellationToken);
     }
 
     private static string? ValidarRequest(TipoEventoRequest request)

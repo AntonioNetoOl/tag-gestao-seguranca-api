@@ -20,11 +20,6 @@ public static class SchemaInitializer
             """, cancellationToken);
 
         await context.Database.ExecuteSqlRawAsync("""
-            CREATE UNIQUE INDEX IF NOT EXISTS ix_funcoes_funcionario_nome
-                ON funcoes_funcionario (nome);
-            """, cancellationToken);
-
-        await context.Database.ExecuteSqlRawAsync("""
             INSERT INTO funcoes_funcionario (id, nome, ativo, data_criacao)
             VALUES
                 ('11111111-1111-1111-1111-111111111001', 'Segurança', true, NOW()),
@@ -69,6 +64,7 @@ public static class SchemaInitializer
             """, cancellationToken);
 
         await EnsureTiposEventoSchemaAsync(context, cancellationToken);
+        await EnsureSoftDeleteUniqueIndexesAsync(context, cancellationToken);
     }
 
     public static async Task EnsureTiposEventoSchemaAsync(TagDbContext context, CancellationToken cancellationToken = default)
@@ -82,6 +78,37 @@ public static class SchemaInitializer
             UPDATE tipos_evento
             SET ativo = true
             WHERE ativo IS NULL;
+            """, cancellationToken);
+    }
+
+    private static async Task EnsureSoftDeleteUniqueIndexesAsync(TagDbContext context, CancellationToken cancellationToken)
+    {
+        await context.Database.ExecuteSqlRawAsync("""
+            DROP INDEX IF EXISTS ix_funcionarios_cpf;
+            DROP INDEX IF EXISTS ix_funcionarios_rg;
+            DROP INDEX IF EXISTS ix_usuarios_email;
+            DROP INDEX IF EXISTS ix_funcoes_funcionario_nome;
+            DROP INDEX IF EXISTS ix_tipos_evento_nome;
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ix_funcionarios_cpf_ativo
+                ON funcionarios (cpf)
+                WHERE ativo = true;
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ix_funcionarios_rg_ativo
+                ON funcionarios (lower(rg))
+                WHERE ativo = true;
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ix_usuarios_email_ativo
+                ON usuarios (lower(email))
+                WHERE ativo = true;
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ix_funcoes_funcionario_nome_ativo
+                ON funcoes_funcionario (lower(nome))
+                WHERE ativo = true;
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ix_tipos_evento_nome_ativo
+                ON tipos_evento (lower(nome))
+                WHERE ativo = true;
             """, cancellationToken);
     }
 }

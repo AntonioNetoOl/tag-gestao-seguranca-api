@@ -29,7 +29,9 @@ public class TagDbContext : DbContext
             entity.ToTable("usuarios");
 
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => x.Email).IsUnique();
+            entity.HasIndex(x => x.Email)
+                .IsUnique()
+                .HasFilter("ativo = true");
 
             entity.Property(x => x.Nome).HasMaxLength(150).IsRequired();
             entity.Property(x => x.Email).HasMaxLength(150).IsRequired();
@@ -43,8 +45,12 @@ public class TagDbContext : DbContext
             entity.ToTable("funcionarios");
 
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => x.Cpf).IsUnique();
-            entity.HasIndex(x => x.Rg).IsUnique();
+            entity.HasIndex(x => x.Cpf)
+                .IsUnique()
+                .HasFilter("ativo = true");
+            entity.HasIndex(x => x.Rg)
+                .IsUnique()
+                .HasFilter("ativo = true");
 
             entity.Property(x => x.NomeCompleto).HasMaxLength(200).IsRequired();
             entity.Property(x => x.Rg).HasMaxLength(30).IsRequired();
@@ -61,7 +67,9 @@ public class TagDbContext : DbContext
             entity.ToTable("funcoes_funcionario");
 
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => x.Nome).IsUnique();
+            entity.HasIndex(x => x.Nome)
+                .IsUnique()
+                .HasFilter("ativo = true");
 
             entity.Property(x => x.Nome).HasMaxLength(100).IsRequired();
             entity.Property(x => x.Ativo).HasDefaultValue(true);
@@ -83,7 +91,11 @@ public class TagDbContext : DbContext
             entity.ToTable("tipos_evento");
 
             entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.Nome)
+                .IsUnique()
+                .HasFilter("ativo = true");
             entity.Property(x => x.Nome).HasMaxLength(100).IsRequired();
+            entity.Property(x => x.Ativo).HasDefaultValue(true);
         });
 
         modelBuilder.Entity<Evento>(entity =>
