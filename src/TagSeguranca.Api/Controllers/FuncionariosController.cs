@@ -130,14 +130,14 @@ public class FuncionariosController : BaseApiController
         var cpfNormalizado = CpfValidator.ApenasNumeros(request.Cpf);
         var rgNormalizado = request.Rg.Trim();
 
-        if (await _context.Funcionarios.AnyAsync(f => f.Cpf == cpfNormalizado, cancellationToken))
+        if (await ExisteCpfAtivoAsync(cpfNormalizado, null, cancellationToken))
         {
-            return ApiConflict("Já existe um funcionário cadastrado com este CPF.");
+            return ApiConflict("Já existe um funcionário ativo cadastrado com este CPF.");
         }
 
-        if (await _context.Funcionarios.AnyAsync(f => f.Rg.ToLower() == rgNormalizado.ToLower(), cancellationToken))
+        if (await ExisteRgAtivoAsync(rgNormalizado, null, cancellationToken))
         {
-            return ApiConflict("Já existe um funcionário cadastrado com este RG.");
+            return ApiConflict("Já existe um funcionário ativo cadastrado com este RG.");
         }
 
         var funcionario = new Funcionario
@@ -175,14 +175,14 @@ public class FuncionariosController : BaseApiController
         var cpfNormalizado = CpfValidator.ApenasNumeros(request.Cpf);
         var rgNormalizado = request.Rg.Trim();
 
-        if (await _context.Funcionarios.AnyAsync(f => f.Id != id && f.Cpf == cpfNormalizado, cancellationToken))
+        if (await ExisteCpfAtivoAsync(cpfNormalizado, id, cancellationToken))
         {
-            return ApiConflict("Já existe outro funcionário cadastrado com este CPF.");
+            return ApiConflict("Já existe outro funcionário ativo cadastrado com este CPF.");
         }
 
-        if (await _context.Funcionarios.AnyAsync(f => f.Id != id && f.Rg.ToLower() == rgNormalizado.ToLower(), cancellationToken))
+        if (await ExisteRgAtivoAsync(rgNormalizado, id, cancellationToken))
         {
-            return ApiConflict("Já existe outro funcionário cadastrado com este RG.");
+            return ApiConflict("Já existe outro funcionário ativo cadastrado com este RG.");
         }
 
         funcionario.NomeCompleto = request.NomeCompleto.Trim();
@@ -218,6 +218,17 @@ public class FuncionariosController : BaseApiController
         var funcionario = await _context.Funcionarios.FirstOrDefaultAsync(f => f.Id == id, cancellationToken);
         if (funcionario is null) return ApiNotFound("Funcionário não encontrado.");
         if (funcionario.Ativo) return NoContent();
+
+        if (await ExisteCpfAtivoAsync(funcionario.Cpf, id, cancellationToken))
+        {
+            return ApiConflict("Já existe outro funcionário ativo cadastrado com este CPF.");
+        }
+
+        if (await ExisteRgAtivoAsync(funcionario.Rg, id, cancellationToken))
+        {
+            return ApiConflict("Já existe outro funcionário ativo cadastrado com este RG.");
+        }
+
         funcionario.Ativo = true;
         funcionario.DataAlteracao = DateTime.UtcNow;
         await _context.SaveChangesAsync(cancellationToken);
@@ -228,6 +239,21 @@ public class FuncionariosController : BaseApiController
     {
         if (funcaoFuncionarioId == Guid.Empty) return null;
         return await _context.FuncoesFuncionario.FirstOrDefaultAsync(f => f.Id == funcaoFuncionarioId && f.Ativo, cancellationToken);
+    }
+
+    private async Task<bool> ExisteCpfAtivoAsync(string cpf, Guid? idAtual, CancellationToken cancellationToken)
+    {
+        var query = _context.Funcionarios.Where(f => f.Ativo && f.Cpf == cpf);
+        if (idAtual.HasValue) query = query.Where(f => f.Id != idAtual.Value);
+        return await query.AnyAsync(cancellationToken);
+    }
+
+    private async Task<bool> ExisteRgAtivoAsync(string rg, Guid? idAtual, CancellationToken cancellationToken)
+    {
+        var rgNormalizado = rg.Trim().ToLower();
+        var query = _context.Funcionarios.Where(f => f.Ativo && f.Rg.ToLower() == rgNormalizado);
+        if (idAtual.HasValue) query = query.Where(f => f.Id != idAtual.Value);
+        return await query.AnyAsync(cancellationToken);
     }
 
     private static string? ValidarRequest(FuncionarioRequest request)

@@ -22,6 +22,7 @@ public class TiposEventoController : BaseApiController
     [HttpGet]
     public async Task<ActionResult<IEnumerable<TipoEventoResponse>>> Listar(
         [FromQuery] string? busca,
+        [FromQuery] bool? ativo,
         [FromQuery] PagedRequest pagination,
         CancellationToken cancellationToken)
     {
@@ -29,37 +30,48 @@ public class TiposEventoController : BaseApiController
             .AsNoTracking()
             .AsQueryable();
 
+        if (ativo.HasValue)
+        {
+            query = query.Where(t => t.Ativo == ativo.Value);
+        }
+
         if (!string.IsNullOrWhiteSpace(busca))
         {
             var termo = busca.Trim().ToLower();
-
-            query = query.Where(t =>
-                t.Nome.ToLower().Contains(termo));
+            query = query.Where(t => t.Nome.ToLower().Contains(termo));
         }
 
         var tipos = await query
-    .OrderBy(t => t.Nome)
-    .Select(t => new TipoEventoResponse
-    {
-        Id = t.Id,
-        Nome = t.Nome,
-        DataCriacao = t.DataCriacao,
-        DataAlteracao = t.DataAlteracao
-    })
-    .ToPagedResponseAsync(
-        pagination.Page,
-        pagination.PageSize,
-        cancellationToken);
+            .OrderByDescending(t => t.Ativo)
+            .ThenBy(t => t.Nome)
+            .Select(t => new TipoEventoResponse
+            {
+                Id = t.Id,
+                Nome = t.Nome,
+                Ativo = t.Ativo,
+                DataCriacao = t.DataCriacao,
+                DataAlteracao = t.DataAlteracao
+            })
+            .ToPagedResponseAsync(pagination.Page, pagination.PageSize, cancellationToken);
 
         return Ok(tipos);
     }
 
     [HttpGet("opcoes")]
     public async Task<ActionResult<IEnumerable<OptionResponse>>> ListarOpcoes(
-    CancellationToken cancellationToken)
+        [FromQuery] bool apenasAtivos = true,
+        CancellationToken cancellationToken = default)
     {
-        var opcoes = await _context.TiposEvento
+        var query = _context.TiposEvento
             .AsNoTracking()
+            .AsQueryable();
+
+        if (apenasAtivos)
+        {
+            query = query.Where(t => t.Ativo);
+        }
+
+        var opcoes = await query
             .OrderBy(t => t.Nome)
             .Select(t => new OptionResponse
             {
@@ -83,6 +95,7 @@ public class TiposEventoController : BaseApiController
             {
                 Id = t.Id,
                 Nome = t.Nome,
+                Ativo = t.Ativo,
                 DataCriacao = t.DataCriacao,
                 DataAlteracao = t.DataAlteracao
             })
@@ -102,40 +115,26 @@ public class TiposEventoController : BaseApiController
         CancellationToken cancellationToken)
     {
         var erro = ValidarRequest(request);
-
-        if (erro is not null)
-        {
-            return ApiBadRequest(erro);
-        }
+        if (erro is not null) return ApiBadRequest(erro);
 
         var nomeNormalizado = request.Nome.Trim();
 
-        var jaExiste = await _context.TiposEvento
-            .AnyAsync(t => t.Nome.ToLower() == nomeNormalizado.ToLower(), cancellationToken);
-
-        if (jaExiste)
+        if (await ExisteNomeAtivoAsync(nomeNormalizado, null, cancellationToken))
         {
-            return ApiConflict("Já existe um tipo de evento com este nome.");
+            return ApiConflict("Já existe um tipo de evento ativo com este nome.");
         }
 
         var tipo = new TipoEvento
         {
             Nome = nomeNormalizado,
+            Ativo = true,
             DataCriacao = DateTime.UtcNow
         };
 
         _context.TiposEvento.Add(tipo);
         await _context.SaveChangesAsync(cancellationToken);
 
-        var response = new TipoEventoResponse
-        {
-            Id = tipo.Id,
-            Nome = tipo.Nome,
-            DataCriacao = tipo.DataCriacao,
-            DataAlteracao = tipo.DataAlteracao
-        };
-
-        return CreatedAtAction(nameof(ObterPorId), new { id = tipo.Id }, response);
+        return CreatedAtAction(nameof(ObterPorId), new { id = tipo.Id }, MapearResponse(tipo));
     }
 
     [HttpPut("{id:guid}")]
@@ -145,11 +144,7 @@ public class TiposEventoController : BaseApiController
         CancellationToken cancellationToken)
     {
         var erro = ValidarRequest(request);
-
-        if (erro is not null)
-        {
-            return ApiBadRequest(erro);
-        }
+        if (erro is not null) return ApiBadRequest(erro);
 
         var tipo = await _context.TiposEvento
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
@@ -161,15 +156,9 @@ public class TiposEventoController : BaseApiController
 
         var nomeNormalizado = request.Nome.Trim();
 
-        var jaExiste = await _context.TiposEvento
-            .AnyAsync(t =>
-                t.Id != id &&
-                t.Nome.ToLower() == nomeNormalizado.ToLower(),
-                cancellationToken);
-
-        if (jaExiste)
+        if (await ExisteNomeAtivoAsync(nomeNormalizado, id, cancellationToken))
         {
-            return ApiConflict("Já existe outro tipo de evento com este nome.");
+            return ApiConflict("Já existe outro tipo de evento ativo com este nome.");
         }
 
         tipo.Nome = nomeNormalizado;
@@ -177,56 +166,66 @@ public class TiposEventoController : BaseApiController
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        var response = new TipoEventoResponse
-        {
-            Id = tipo.Id,
-            Nome = tipo.Nome,
-            DataCriacao = tipo.DataCriacao,
-            DataAlteracao = tipo.DataAlteracao
-        };
-
-        return Ok(response);
+        return Ok(MapearResponse(tipo));
     }
 
     [HttpDelete("{id:guid}")]
-    public async Task<IActionResult> Excluir(
-        Guid id,
-        CancellationToken cancellationToken)
+    public async Task<IActionResult> Excluir(Guid id, CancellationToken cancellationToken)
     {
-        var tipo = await _context.TiposEvento
-            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+        var tipo = await _context.TiposEvento.FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+        if (tipo is null) return ApiNotFound("Tipo de evento não encontrado.");
+        if (!tipo.Ativo) return NoContent();
 
-        if (tipo is null)
-        {
-            return ApiNotFound("Tipo de evento não encontrado.");
-        }
+        tipo.Ativo = false;
+        tipo.DataAlteracao = DateTime.UtcNow;
 
-        var possuiEventos = await _context.Eventos
-            .AnyAsync(e => e.TipoEventoId == id, cancellationToken);
-
-        if (possuiEventos)
-        {
-            return ApiConflict("Não é possível excluir um tipo de evento que possui eventos vinculados.");
-        }
-
-        _context.TiposEvento.Remove(tipo);
         await _context.SaveChangesAsync(cancellationToken);
-
         return NoContent();
+    }
+
+    [HttpPatch("{id:guid}/ativar")]
+    public async Task<IActionResult> Ativar(Guid id, CancellationToken cancellationToken)
+    {
+        var tipo = await _context.TiposEvento.FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
+        if (tipo is null) return ApiNotFound("Tipo de evento não encontrado.");
+        if (tipo.Ativo) return NoContent();
+
+        if (await ExisteNomeAtivoAsync(tipo.Nome, id, cancellationToken))
+        {
+            return ApiConflict("Já existe outro tipo de evento ativo com este nome.");
+        }
+
+        tipo.Ativo = true;
+        tipo.DataAlteracao = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return NoContent();
+    }
+
+    private async Task<bool> ExisteNomeAtivoAsync(string nome, Guid? idAtual, CancellationToken cancellationToken)
+    {
+        var nomeNormalizado = nome.Trim().ToLower();
+        var query = _context.TiposEvento.Where(t => t.Ativo && t.Nome.ToLower() == nomeNormalizado);
+        if (idAtual.HasValue) query = query.Where(t => t.Id != idAtual.Value);
+        return await query.AnyAsync(cancellationToken);
     }
 
     private static string? ValidarRequest(TipoEventoRequest request)
     {
-        if (string.IsNullOrWhiteSpace(request.Nome))
-        {
-            return "O nome do tipo de evento é obrigatório.";
-        }
-
-        if (request.Nome.Trim().Length > 100)
-        {
-            return "O nome do tipo de evento deve ter no máximo 100 caracteres.";
-        }
-
+        if (string.IsNullOrWhiteSpace(request.Nome)) return "O nome do tipo de evento é obrigatório.";
+        if (request.Nome.Trim().Length > 100) return "O nome do tipo de evento deve ter no máximo 100 caracteres.";
         return null;
+    }
+
+    private static TipoEventoResponse MapearResponse(TipoEvento tipo)
+    {
+        return new TipoEventoResponse
+        {
+            Id = tipo.Id,
+            Nome = tipo.Nome,
+            Ativo = tipo.Ativo,
+            DataCriacao = tipo.DataCriacao,
+            DataAlteracao = tipo.DataAlteracao
+        };
     }
 }
