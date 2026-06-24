@@ -283,6 +283,16 @@ public class EventosController : BaseApiController
             return ApiConflict("Evento cancelado não pode ser alterado.");
         }
 
+        if (evento.Status == EventoStatus.Escalado)
+        {
+            return ApiConflict("Não é possível alterar este evento porque a escala já foi finalizada. Cancele a finalização da escala para editar os dados do evento.");
+        }
+
+        if (evento.Status == EventoStatus.Finalizado)
+        {
+            return ApiConflict("Evento finalizado não pode ser alterado.");
+        }
+
         var casaExiste = await _context.Casas
             .AnyAsync(c => c.Id == request.CasaId, cancellationToken);
 
@@ -297,26 +307,6 @@ public class EventosController : BaseApiController
         if (!tipoEventoExiste)
         {
             return ApiBadRequest("O tipo de evento informado não existe.");
-        }
-
-        if (evento.Status == EventoStatus.Finalizado)
-        {
-            var possuiVinculoPago = await _context.EventoFuncionarios
-                .AnyAsync(ef => ef.EventoId == id && ef.Pago, cancellationToken);
-
-            if (possuiVinculoPago)
-            {
-                return ApiConflict("Evento finalizado com pagamento confirmado não pode ser alterado.");
-            }
-
-            evento.ValorDiaria = request.ValorDiaria;
-            evento.ValorHoraExtra = request.ValorHoraExtra;
-            evento.DataAlteracao = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync(cancellationToken);
-
-            var responseFinalizado = await BuscarResponsePorId(evento.Id, cancellationToken);
-            return Ok(responseFinalizado);
         }
 
         evento.CasaId = request.CasaId;
