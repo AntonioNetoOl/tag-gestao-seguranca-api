@@ -17,6 +17,7 @@ public class TagDbContext : DbContext
     public DbSet<TipoEvento> TiposEvento => Set<TipoEvento>();
     public DbSet<Evento> Eventos => Set<Evento>();
     public DbSet<EventoFuncionario> EventoFuncionarios => Set<EventoFuncionario>();
+    public DbSet<EventoFuncionarioHistorico> EventoFuncionarioHistoricos => Set<EventoFuncionarioHistorico>();
     public DbSet<Pagamento> Pagamentos => Set<Pagamento>();
     public DbSet<PagamentoItem> PagamentoItens => Set<PagamentoItem>();
 
@@ -115,8 +116,7 @@ public class TagDbContext : DbContext
 
             entity.Property(x => x.Status)
                 .HasConversion<string>()
-                .HasMaxLength(30)
-                .HasDefaultValue(EventoStatus.Rascunho);
+                .HasMaxLength(30);
 
             entity.HasOne(x => x.Casa)
                 .WithMany(x => x.Eventos)
@@ -152,6 +152,46 @@ public class TagDbContext : DbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<EventoFuncionarioHistorico>(entity =>
+        {
+            entity.ToTable("evento_funcionarios_historico");
+
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.EventoId);
+            entity.HasIndex(x => x.EventoFuncionarioId);
+            entity.HasIndex(x => x.DataAcao);
+
+            entity.Property(x => x.Acao).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.Motivo).HasMaxLength(500);
+            entity.Property(x => x.Observacao).HasMaxLength(1000);
+            entity.Property(x => x.DataAcao).HasDefaultValueSql("NOW()");
+
+            entity.HasOne(x => x.Evento)
+                .WithMany()
+                .HasForeignKey(x => x.EventoId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.EventoFuncionario)
+                .WithMany()
+                .HasForeignKey(x => x.EventoFuncionarioId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.FuncionarioAnterior)
+                .WithMany()
+                .HasForeignKey(x => x.FuncionarioAnteriorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.FuncionarioNovo)
+                .WithMany()
+                .HasForeignKey(x => x.FuncionarioNovoId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.UsuarioAcao)
+                .WithMany()
+                .HasForeignKey(x => x.UsuarioAcaoId)
+                .OnDelete(DeleteBehavior.SetNull);
+        });
+
         modelBuilder.Entity<Pagamento>(entity =>
         {
             entity.ToTable("pagamentos");
@@ -163,8 +203,7 @@ public class TagDbContext : DbContext
 
             entity.Property(x => x.Status)
                 .HasConversion<string>()
-                .HasMaxLength(30)
-                .HasDefaultValue(PagamentoStatus.Confirmado);
+                .HasMaxLength(30);
 
             entity.HasOne(x => x.Funcionario)
                 .WithMany(x => x.Pagamentos)

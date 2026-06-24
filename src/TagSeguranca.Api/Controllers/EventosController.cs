@@ -20,10 +20,10 @@ public class EventosController : BaseApiController
     private readonly RelatoriosPdfService _relatoriosPdfService;
 
     public EventosController(
-    TagDbContext context,
-    EscalaExcelService escalaExcelService,
-    EventoFinalizacaoService eventoFinalizacaoService,
-    RelatoriosPdfService relatoriosPdfService)
+        TagDbContext context,
+        EscalaExcelService escalaExcelService,
+        EventoFinalizacaoService eventoFinalizacaoService,
+        RelatoriosPdfService relatoriosPdfService)
     {
         _context = context;
         _escalaExcelService = escalaExcelService;
@@ -33,7 +33,7 @@ public class EventosController : BaseApiController
 
     [HttpPost("finalizar-vencidos")]
     public async Task<ActionResult<EventoFinalizacaoResultado>> FinalizarVencidos(
-    CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
         var resultado = await _finalizacaoService
             .FinalizarEventosVencidosAsync(cancellationToken);
@@ -48,12 +48,26 @@ public class EventosController : BaseApiController
         [FromQuery] DateTime? dataFim,
         [FromQuery] string? nome,
         [FromQuery] EventoStatus? status,
+        [FromQuery] bool apenasOperacao,
         [FromQuery] PagedRequest pagination,
         CancellationToken cancellationToken)
     {
         var query = _context.Eventos
             .AsNoTracking()
             .AsQueryable();
+
+        if (apenasOperacao)
+        {
+            var limiteFinalizados = DateTime.UtcNow.AddHours(-24);
+            var limiteData = limiteFinalizados.Date;
+            var limiteHora = limiteFinalizados.TimeOfDay;
+
+            query = query.Where(e =>
+                e.Status != EventoStatus.Cancelado &&
+                (e.Status != EventoStatus.Finalizado ||
+                 e.DataEvento > limiteData ||
+                 (e.DataEvento == limiteData && e.HoraFim >= limiteHora)));
+        }
 
         if (casaId.HasValue)
         {
@@ -84,30 +98,30 @@ public class EventosController : BaseApiController
         }
 
         var eventos = await query
-    .OrderBy(e => e.DataEvento)
-    .ThenBy(e => e.HoraInicio)
-    .Select(e => new EventoResponse
-    {
-        Id = e.Id,
-        CasaId = e.CasaId,
-        CasaNome = e.Casa.Nome,
-        TipoEventoId = e.TipoEventoId,
-        TipoEventoNome = e.TipoEvento.Nome,
-        Nome = e.Nome,
-        DataEvento = e.DataEvento,
-        HoraInicio = e.HoraInicio,
-        HoraFim = e.HoraFim,
-        ValorDiaria = e.ValorDiaria,
-        ValorHoraExtra = e.ValorHoraExtra,
-        Status = e.Status.ToString(),
-        QuantidadeFuncionarios = e.Funcionarios.Count(f => !f.Removido),
-        DataCriacao = e.DataCriacao,
-        DataAlteracao = e.DataAlteracao
-    })
-    .ToPagedResponseAsync(
-        pagination.Page,
-        pagination.PageSize,
-        cancellationToken);
+            .OrderBy(e => e.DataEvento)
+            .ThenBy(e => e.HoraInicio)
+            .Select(e => new EventoResponse
+            {
+                Id = e.Id,
+                CasaId = e.CasaId,
+                CasaNome = e.Casa.Nome,
+                TipoEventoId = e.TipoEventoId,
+                TipoEventoNome = e.TipoEvento.Nome,
+                Nome = e.Nome,
+                DataEvento = e.DataEvento,
+                HoraInicio = e.HoraInicio,
+                HoraFim = e.HoraFim,
+                ValorDiaria = e.ValorDiaria,
+                ValorHoraExtra = e.ValorHoraExtra,
+                Status = e.Status.ToString(),
+                QuantidadeFuncionarios = e.Funcionarios.Count(f => !f.Removido),
+                DataCriacao = e.DataCriacao,
+                DataAlteracao = e.DataAlteracao
+            })
+            .ToPagedResponseAsync(
+                pagination.Page,
+                pagination.PageSize,
+                cancellationToken);
 
         return Ok(eventos);
     }
@@ -150,8 +164,8 @@ public class EventosController : BaseApiController
 
     [HttpGet("{id:guid}/escala/excel")]
     public async Task<IActionResult> ExportarEscalaExcel(
-    Guid id,
-    CancellationToken cancellationToken)
+        Guid id,
+        CancellationToken cancellationToken)
     {
         var arquivo = await _escalaExcelService
             .GerarEscalaEventoAsync(id, cancellationToken);
@@ -171,8 +185,8 @@ public class EventosController : BaseApiController
 
     [HttpGet("{id:guid}/escala/pdf")]
     public async Task<IActionResult> ExportarEscalaPdf(
-    Guid id,
-    CancellationToken cancellationToken)
+        Guid id,
+        CancellationToken cancellationToken)
     {
         var arquivo = await _relatoriosPdfService.GerarEscalaEventoAsync(id, cancellationToken);
 
@@ -269,6 +283,16 @@ public class EventosController : BaseApiController
             return ApiConflict("Evento cancelado não pode ser alterado.");
         }
 
+        if (evento.Status == EventoStatus.Escalado)
+        {
+            return ApiConflict("Não é possível alterar este evento porque a escala já foi finalizada. Cancele a finalização da escala para editar os dados do evento.");
+        }
+
+        if (evento.Status == EventoStatus.Finalizado)
+        {
+            return ApiConflict("Evento finalizado não pode ser alterado.");
+        }
+
         var casaExiste = await _context.Casas
             .AnyAsync(c => c.Id == request.CasaId, cancellationToken);
 
@@ -283,26 +307,6 @@ public class EventosController : BaseApiController
         if (!tipoEventoExiste)
         {
             return ApiBadRequest("O tipo de evento informado não existe.");
-        }
-
-        if (evento.Status == EventoStatus.Finalizado)
-        {
-            var possuiVinculoPago = await _context.EventoFuncionarios
-                .AnyAsync(ef => ef.EventoId == id && ef.Pago, cancellationToken);
-
-            if (possuiVinculoPago)
-            {
-                return ApiConflict("Evento finalizado com pagamento confirmado não pode ser alterado.");
-            }
-
-            evento.ValorDiaria = request.ValorDiaria;
-            evento.ValorHoraExtra = request.ValorHoraExtra;
-            evento.DataAlteracao = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync(cancellationToken);
-
-            var responseFinalizado = await BuscarResponsePorId(evento.Id, cancellationToken);
-            return Ok(responseFinalizado);
         }
 
         evento.CasaId = request.CasaId;
@@ -408,6 +412,13 @@ public class EventosController : BaseApiController
             return "A data do evento é obrigatória.";
         }
 
+        var hojeOperacional = ObterHojeOperacional();
+
+        if (request.DataEvento.Date < hojeOperacional)
+        {
+            return $"A data do evento não pode ser anterior a hoje ({hojeOperacional:dd/MM/yyyy}).";
+        }
+
         if (request.ValorDiaria <= 0)
         {
             return "O valor da diária deve ser maior que zero.";
@@ -419,5 +430,27 @@ public class EventosController : BaseApiController
         }
 
         return null;
+    }
+
+    private static DateTime ObterHojeOperacional()
+    {
+        var agoraUtc = DateTime.UtcNow;
+
+        foreach (var timeZoneId in new[] { "America/Sao_Paulo", "E. South America Standard Time" })
+        {
+            try
+            {
+                var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+                return TimeZoneInfo.ConvertTimeFromUtc(agoraUtc, timeZone).Date;
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
+            catch (InvalidTimeZoneException)
+            {
+            }
+        }
+
+        return agoraUtc.AddHours(-3).Date;
     }
 }

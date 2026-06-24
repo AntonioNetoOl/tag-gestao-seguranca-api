@@ -1,10 +1,10 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TagSeguranca.Api.Application.Escalas;
 using TagSeguranca.Api.Domain.Entities;
 using TagSeguranca.Api.Domain.Enums;
 using TagSeguranca.Api.Infrastructure.Persistence;
-using TagSeguranca.Api.Application.Eventos.Services;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -88,6 +88,11 @@ public class EscalasController : BaseApiController
             return ApiConflict("Evento cancelado não pode receber funcionários.");
         }
 
+        if (evento.Status != EventoStatus.Rascunho)
+        {
+            return ApiConflict("Após finalizar a escala, não é possível adicionar novos funcionários.");
+        }
+
         var funcionario = await _context.Funcionarios
             .FirstOrDefaultAsync(f => f.Id == request.FuncionarioId, cancellationToken);
 
@@ -106,6 +111,8 @@ public class EscalasController : BaseApiController
                 ef => ef.EventoId == eventoId && ef.FuncionarioId == request.FuncionarioId,
                 cancellationToken);
 
+        var agora = DateTime.UtcNow;
+
         if (vinculoExistente is not null)
         {
             if (!vinculoExistente.Removido)
@@ -120,13 +127,17 @@ public class EscalasController : BaseApiController
 
             vinculoExistente.Removido = false;
             vinculoExistente.MotivoRemocao = null;
-            vinculoExistente.DataAlteracao = DateTime.UtcNow;
+            vinculoExistente.DataAlteracao = agora;
+            vinculoExistente.UsuarioAlteracaoId = ObterUsuarioAtualId();
 
-            if (evento.Status == EventoStatus.Rascunho)
-            {
-                evento.Status = EventoStatus.Escalado;
-                evento.DataAlteracao = DateTime.UtcNow;
-            }
+            RegistrarHistorico(
+                eventoId,
+                "ReativarFuncionario",
+                vinculoExistente.Id,
+                funcionarioAnteriorId: null,
+                funcionarioNovoId: vinculoExistente.FuncionarioId,
+                motivo: "Funcionário reativado na escala.",
+                dataAcao: agora);
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -141,22 +152,134 @@ public class EscalasController : BaseApiController
             FuncionarioId = request.FuncionarioId,
             Pago = false,
             Removido = false,
-            DataCriacao = DateTime.UtcNow
+            DataCriacao = agora,
+            UsuarioCriacaoId = ObterUsuarioAtualId()
         };
 
         _context.EventoFuncionarios.Add(eventoFuncionario);
 
-        if (evento.Status == EventoStatus.Rascunho)
-        {
-            evento.Status = EventoStatus.Escalado;
-            evento.DataAlteracao = DateTime.UtcNow;
-        }
+        RegistrarHistorico(
+            eventoId,
+            "AdicionarFuncionario",
+            eventoFuncionario.Id,
+            funcionarioAnteriorId: null,
+            funcionarioNovoId: request.FuncionarioId,
+            motivo: null,
+            dataAcao: agora);
 
         await _context.SaveChangesAsync(cancellationToken);
 
         var response = await BuscarResponsePorId(eventoFuncionario.Id, cancellationToken);
 
         return CreatedAtAction(nameof(Listar), new { eventoId }, response);
+    }
+
+    [HttpPost("finalizar")]
+    public async Task<IActionResult> FinalizarEscala(
+        Guid eventoId,
+        CancellationToken cancellationToken)
+    {
+        var evento = await _context.Eventos
+            .FirstOrDefaultAsync(e => e.Id == eventoId, cancellationToken);
+
+        if (evento is null)
+        {
+            return ApiNotFound("Evento não encontrado.");
+        }
+
+        if (evento.Status == EventoStatus.Cancelado)
+        {
+            return ApiConflict("Evento cancelado não pode ter escala finalizada.");
+        }
+
+        if (evento.Status == EventoStatus.Finalizado)
+        {
+            return ApiConflict("Evento finalizado não pode ter escala finalizada novamente.");
+        }
+
+        var possuiFuncionario = await _context.EventoFuncionarios
+            .AnyAsync(ef => ef.EventoId == eventoId && !ef.Removido, cancellationToken);
+
+        if (!possuiFuncionario)
+        {
+            return ApiConflict("A escala precisa ter pelo menos um funcionário.");
+        }
+
+        if (evento.Status == EventoStatus.Escalado)
+        {
+            return NoContent();
+        }
+
+        var agora = DateTime.UtcNow;
+        evento.Status = EventoStatus.Escalado;
+        evento.DataAlteracao = agora;
+
+        RegistrarHistorico(
+            eventoId,
+            "FinalizarEscala",
+            eventoFuncionarioId: null,
+            funcionarioAnteriorId: null,
+            funcionarioNovoId: null,
+            motivo: "Escala finalizada pelo usuário.",
+            dataAcao: agora);
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
+    [HttpPost("cancelar-finalizacao")]
+    public async Task<IActionResult> CancelarFinalizacaoEscala(
+        Guid eventoId,
+        CancellationToken cancellationToken)
+    {
+        var evento = await _context.Eventos
+            .FirstOrDefaultAsync(e => e.Id == eventoId, cancellationToken);
+
+        if (evento is null)
+        {
+            return ApiNotFound("Evento não encontrado.");
+        }
+
+        if (evento.Status == EventoStatus.Cancelado)
+        {
+            return ApiConflict("Evento cancelado não pode ter finalização de escala cancelada.");
+        }
+
+        if (evento.Status == EventoStatus.Finalizado)
+        {
+            return ApiConflict("Evento finalizado não pode ter a finalização da escala cancelada.");
+        }
+
+        if (evento.Status == EventoStatus.Rascunho)
+        {
+            return NoContent();
+        }
+
+        var possuiVinculoPago = await _context.EventoFuncionarios
+            .AnyAsync(ef => ef.EventoId == eventoId && ef.Pago, cancellationToken);
+
+        if (possuiVinculoPago)
+        {
+            return ApiConflict("Escala com funcionário pago não pode ter finalização cancelada.");
+        }
+
+        var agora = DateTime.UtcNow;
+        evento.Status = EventoStatus.Rascunho;
+        evento.DataAlteracao = agora;
+
+        RegistrarHistorico(
+            eventoId,
+            "CancelarFinalizacaoEscala",
+            eventoFuncionarioId: null,
+            funcionarioAnteriorId: null,
+            funcionarioNovoId: null,
+            motivo: "Finalização da escala cancelada pelo usuário.",
+            dataAcao: agora);
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
     }
 
     [HttpDelete("{funcionarioId:guid}")]
@@ -194,12 +317,32 @@ public class EscalasController : BaseApiController
             return ApiConflict("Funcionário já pago não pode ser removido da escala.");
         }
 
-        vinculo.Removido = true;
-        vinculo.MotivoRemocao = string.IsNullOrWhiteSpace(request?.MotivoRemocao)
-            ? "Removido da escala"
-            : request.MotivoRemocao.Trim();
+        var escalaFinalizada = evento.Status is EventoStatus.Escalado or EventoStatus.Finalizado;
+        var motivo = request?.MotivoRemocao?.Trim();
 
-        vinculo.DataAlteracao = DateTime.UtcNow;
+        if (escalaFinalizada && string.IsNullOrWhiteSpace(motivo))
+        {
+            return ApiBadRequest("Informe o motivo da remoção para escalas finalizadas.");
+        }
+
+        var agora = DateTime.UtcNow;
+        var motivoFinal = string.IsNullOrWhiteSpace(motivo)
+            ? "Removido da escala"
+            : motivo;
+
+        vinculo.Removido = true;
+        vinculo.MotivoRemocao = motivoFinal;
+        vinculo.DataAlteracao = agora;
+        vinculo.UsuarioAlteracaoId = ObterUsuarioAtualId();
+
+        RegistrarHistorico(
+            eventoId,
+            "RemoverFuncionario",
+            vinculo.Id,
+            funcionarioAnteriorId: funcionarioId,
+            funcionarioNovoId: null,
+            motivo: motivoFinal,
+            dataAcao: agora);
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -208,9 +351,9 @@ public class EscalasController : BaseApiController
 
     [HttpPost("substituir")]
     public async Task<ActionResult<EventoFuncionarioResponse>> Substituir(
-    Guid eventoId,
-    [FromBody] SubstituirFuncionarioEventoRequest request,
-    CancellationToken cancellationToken)
+        Guid eventoId,
+        [FromBody] SubstituirFuncionarioEventoRequest request,
+        CancellationToken cancellationToken)
     {
         if (request.FuncionarioAntigoId == Guid.Empty)
         {
@@ -290,12 +433,14 @@ public class EscalasController : BaseApiController
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 
         var agora = DateTime.UtcNow;
-
-        vinculoAntigo.Removido = true;
-        vinculoAntigo.MotivoRemocao = string.IsNullOrWhiteSpace(request.Motivo)
+        var motivo = string.IsNullOrWhiteSpace(request.Motivo)
             ? "Substituído por outro funcionário"
             : request.Motivo.Trim();
+
+        vinculoAntigo.Removido = true;
+        vinculoAntigo.MotivoRemocao = motivo;
         vinculoAntigo.DataAlteracao = agora;
+        vinculoAntigo.UsuarioAlteracaoId = ObterUsuarioAtualId();
 
         EventoFuncionario vinculoNovo;
 
@@ -304,6 +449,7 @@ public class EscalasController : BaseApiController
             vinculoNovoExistente.Removido = false;
             vinculoNovoExistente.MotivoRemocao = null;
             vinculoNovoExistente.DataAlteracao = agora;
+            vinculoNovoExistente.UsuarioAlteracaoId = ObterUsuarioAtualId();
 
             vinculoNovo = vinculoNovoExistente;
         }
@@ -315,17 +461,22 @@ public class EscalasController : BaseApiController
                 FuncionarioId = request.FuncionarioNovoId,
                 Pago = false,
                 Removido = false,
-                DataCriacao = agora
+                DataCriacao = agora,
+                UsuarioCriacaoId = ObterUsuarioAtualId()
             };
 
             _context.EventoFuncionarios.Add(vinculoNovo);
         }
 
-        if (evento.Status == EventoStatus.Rascunho)
-        {
-            evento.Status = EventoStatus.Escalado;
-            evento.DataAlteracao = agora;
-        }
+        RegistrarHistorico(
+            eventoId,
+            "SubstituirFuncionario",
+            vinculoAntigo.Id,
+            funcionarioAnteriorId: request.FuncionarioAntigoId,
+            funcionarioNovoId: request.FuncionarioNovoId,
+            motivo: motivo,
+            dataAcao: agora,
+            observacao: $"Novo vínculo: {vinculoNovo.Id}");
 
         await _context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -333,6 +484,36 @@ public class EscalasController : BaseApiController
         var response = await BuscarResponsePorId(vinculoNovo.Id, cancellationToken);
 
         return Ok(response);
+    }
+
+    private void RegistrarHistorico(
+        Guid eventoId,
+        string acao,
+        Guid? eventoFuncionarioId,
+        Guid? funcionarioAnteriorId,
+        Guid? funcionarioNovoId,
+        string? motivo,
+        DateTime dataAcao,
+        string? observacao = null)
+    {
+        _context.EventoFuncionarioHistoricos.Add(new EventoFuncionarioHistorico
+        {
+            EventoId = eventoId,
+            EventoFuncionarioId = eventoFuncionarioId,
+            FuncionarioAnteriorId = funcionarioAnteriorId,
+            FuncionarioNovoId = funcionarioNovoId,
+            Acao = acao,
+            Motivo = motivo,
+            Observacao = observacao,
+            UsuarioAcaoId = ObterUsuarioAtualId(),
+            DataAcao = dataAcao
+        });
+    }
+
+    private Guid? ObterUsuarioAtualId()
+    {
+        var valor = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(valor, out var usuarioId) ? usuarioId : null;
     }
 
     private async Task<EventoFuncionarioResponse> BuscarResponsePorId(
