@@ -194,6 +194,50 @@ public class EscalasController : BaseApiController
         return NoContent();
     }
 
+    [HttpPost("cancelar-finalizacao")]
+    public async Task<IActionResult> CancelarFinalizacaoEscala(
+        Guid eventoId,
+        CancellationToken cancellationToken)
+    {
+        var evento = await _context.Eventos
+            .FirstOrDefaultAsync(e => e.Id == eventoId, cancellationToken);
+
+        if (evento is null)
+        {
+            return ApiNotFound("Evento não encontrado.");
+        }
+
+        if (evento.Status == EventoStatus.Cancelado)
+        {
+            return ApiConflict("Evento cancelado não pode ter finalização de escala cancelada.");
+        }
+
+        if (evento.Status == EventoStatus.Finalizado)
+        {
+            return ApiConflict("Evento finalizado não pode ter a finalização da escala cancelada.");
+        }
+
+        if (evento.Status == EventoStatus.Rascunho)
+        {
+            return NoContent();
+        }
+
+        var possuiVinculoPago = await _context.EventoFuncionarios
+            .AnyAsync(ef => ef.EventoId == eventoId && ef.Pago, cancellationToken);
+
+        if (possuiVinculoPago)
+        {
+            return ApiConflict("Escala com funcionário pago não pode ter finalização cancelada.");
+        }
+
+        evento.Status = EventoStatus.Rascunho;
+        evento.DataAlteracao = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
     [HttpDelete("{funcionarioId:guid}")]
     public async Task<IActionResult> Remover(
         Guid eventoId,
@@ -229,10 +273,18 @@ public class EscalasController : BaseApiController
             return ApiConflict("Funcionário já pago não pode ser removido da escala.");
         }
 
+        var escalaFinalizada = evento.Status is EventoStatus.Escalado or EventoStatus.Finalizado;
+        var motivo = request?.MotivoRemocao?.Trim();
+
+        if (escalaFinalizada && string.IsNullOrWhiteSpace(motivo))
+        {
+            return ApiBadRequest("Informe o motivo da remoção para escalas finalizadas.");
+        }
+
         vinculo.Removido = true;
-        vinculo.MotivoRemocao = string.IsNullOrWhiteSpace(request?.MotivoRemocao)
+        vinculo.MotivoRemocao = string.IsNullOrWhiteSpace(motivo)
             ? "Removido da escala"
-            : request.MotivoRemocao.Trim();
+            : motivo;
 
         vinculo.DataAlteracao = DateTime.UtcNow;
 
