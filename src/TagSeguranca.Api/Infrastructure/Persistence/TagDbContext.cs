@@ -115,8 +115,7 @@ public class TagDbContext : DbContext
 
             entity.Property(x => x.Status)
                 .HasConversion<string>()
-                .HasMaxLength(30)
-                .HasDefaultValue(EventoStatus.Rascunho);
+                .HasMaxLength(30);
 
             entity.HasOne(x => x.Casa)
                 .WithMany(x => x.Eventos)
@@ -163,8 +162,7 @@ public class TagDbContext : DbContext
 
             entity.Property(x => x.Status)
                 .HasConversion<string>()
-                .HasMaxLength(30)
-                .HasDefaultValue(PagamentoStatus.Confirmado);
+                .HasMaxLength(30);
 
             entity.HasOne(x => x.Funcionario)
                 .WithMany(x => x.Pagamentos)
