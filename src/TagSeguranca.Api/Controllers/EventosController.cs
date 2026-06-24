@@ -422,6 +422,11 @@ public class EventosController : BaseApiController
             return "A data do evento é obrigatória.";
         }
 
+        if (request.DataEvento.Date < DateTime.UtcNow.Date)
+        {
+            return $"A data do evento não pode ser anterior a hoje ({DateTime.UtcNow:dd/MM/yyyy}).";
+        }
+
         if (request.ValorDiaria <= 0)
         {
             return "O valor da diária deve ser maior que zero.";
