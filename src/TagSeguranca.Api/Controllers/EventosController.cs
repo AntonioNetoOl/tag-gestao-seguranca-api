@@ -422,9 +422,11 @@ public class EventosController : BaseApiController
             return "A data do evento é obrigatória.";
         }
 
-        if (request.DataEvento.Date < DateTime.UtcNow.Date)
+        var hojeOperacional = ObterHojeOperacional();
+
+        if (request.DataEvento.Date < hojeOperacional)
         {
-            return $"A data do evento não pode ser anterior a hoje ({DateTime.UtcNow:dd/MM/yyyy}).";
+            return $"A data do evento não pode ser anterior a hoje ({hojeOperacional:dd/MM/yyyy}).";
         }
 
         if (request.ValorDiaria <= 0)
@@ -438,5 +440,27 @@ public class EventosController : BaseApiController
         }
 
         return null;
+    }
+
+    private static DateTime ObterHojeOperacional()
+    {
+        var agoraUtc = DateTime.UtcNow;
+
+        foreach (var timeZoneId in new[] { "America/Sao_Paulo", "E. South America Standard Time" })
+        {
+            try
+            {
+                var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+                return TimeZoneInfo.ConvertTimeFromUtc(agoraUtc, timeZone).Date;
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
+            catch (InvalidTimeZoneException)
+            {
+            }
+        }
+
+        return agoraUtc.AddHours(-3).Date;
     }
 }
