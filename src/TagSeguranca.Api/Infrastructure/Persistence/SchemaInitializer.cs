@@ -25,7 +25,7 @@ public static class SchemaInitializer
                 ('11111111-1111-1111-1111-111111111001', 'Segurança', true, NOW()),
                 ('11111111-1111-1111-1111-111111111002', 'Líder', true, NOW()),
                 ('11111111-1111-1111-1111-111111111003', 'Coordenador', true, NOW())
-            ON CONFLICT (nome) DO NOTHING;
+            ON CONFLICT DO NOTHING;
             """, cancellationToken);
 
         await context.Database.ExecuteSqlRawAsync("""
