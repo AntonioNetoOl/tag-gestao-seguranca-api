@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using TagSeguranca.Api.Application.Relatorios.Services;
+using TagSeguranca.Api.Infrastructure.Persistence;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -8,15 +9,18 @@ namespace TagSeguranca.Api.Controllers;
 public class RelatoriosController : BaseApiController
 {
     private readonly EscalaExcelService _escalaExcelService;
+    private readonly EscalaPdfService _escalaPdfService;
     private readonly PagamentosExcelService _pagamentosExcelService;
     private readonly RelatoriosPdfService _relatoriosPdfService;
 
     public RelatoriosController(
         EscalaExcelService escalaExcelService,
+        TagDbContext context,
         PagamentosExcelService pagamentosExcelService,
         RelatoriosPdfService relatoriosPdfService)
     {
         _escalaExcelService = escalaExcelService;
+        _escalaPdfService = new EscalaPdfService(context);
         _pagamentosExcelService = pagamentosExcelService;
         _relatoriosPdfService = relatoriosPdfService;
     }
@@ -81,7 +85,7 @@ public class RelatoriosController : BaseApiController
             return ApiBadRequest(erroPeriodo);
         }
 
-        var arquivo = await _relatoriosPdfService.GerarEscalaGeralAsync(
+        var arquivo = await _escalaPdfService.GerarEscalaGeralAsync(
             casaId,
             dataInicio,
             dataFim,
