@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TagSeguranca.Api.Application.Escalas;
+using TagSeguranca.Api.Application.Eventos.Services;
 using TagSeguranca.Api.Domain.Entities;
 using TagSeguranca.Api.Domain.Enums;
 using TagSeguranca.Api.Infrastructure.Persistence;
@@ -13,10 +14,12 @@ namespace TagSeguranca.Api.Controllers;
 public class EscalasController : BaseApiController
 {
     private readonly TagDbContext _context;
+    private readonly EventoConflitoService _conflitoService;
 
     public EscalasController(TagDbContext context)
     {
         _context = context;
+        _conflitoService = new EventoConflitoService(context);
     }
 
     [HttpGet]
@@ -125,6 +128,20 @@ public class EscalasController : BaseApiController
                 return ApiConflict("Funcionário já pago não pode ser reativado na escala.");
             }
 
+            var conflitoReativacao = await _conflitoService.ValidarConflitoFuncionarioAsync(
+                eventoId,
+                request.FuncionarioId,
+                funcionario.NomeCompleto,
+                evento.DataEvento,
+                evento.HoraInicio,
+                evento.HoraFim,
+                cancellationToken);
+
+            if (conflitoReativacao is not null)
+            {
+                return ApiConflict(conflitoReativacao);
+            }
+
             vinculoExistente.Removido = false;
             vinculoExistente.MotivoRemocao = null;
             vinculoExistente.DataAlteracao = agora;
@@ -144,6 +161,20 @@ public class EscalasController : BaseApiController
             var responseReativado = await BuscarResponsePorId(vinculoExistente.Id, cancellationToken);
 
             return Ok(responseReativado);
+        }
+
+        var conflito = await _conflitoService.ValidarConflitoFuncionarioAsync(
+            eventoId,
+            request.FuncionarioId,
+            funcionario.NomeCompleto,
+            evento.DataEvento,
+            evento.HoraInicio,
+            evento.HoraFim,
+            cancellationToken);
+
+        if (conflito is not null)
+        {
+            return ApiConflict(conflito);
         }
 
         var eventoFuncionario = new EventoFuncionario
@@ -208,6 +239,31 @@ public class EscalasController : BaseApiController
         if (evento.Status == EventoStatus.Escalado)
         {
             return NoContent();
+        }
+
+        var conflitoCasa = await _conflitoService.ValidarConflitoCasaAsync(
+            eventoId,
+            evento.CasaId,
+            evento.DataEvento,
+            evento.HoraInicio,
+            evento.HoraFim,
+            cancellationToken);
+
+        if (conflitoCasa is not null)
+        {
+            return ApiConflict(conflitoCasa);
+        }
+
+        var conflitoFuncionario = await _conflitoService.ValidarConflitosFuncionariosDaEscalaAsync(
+            eventoId,
+            evento.DataEvento,
+            evento.HoraInicio,
+            evento.HoraFim,
+            cancellationToken);
+
+        if (conflitoFuncionario is not null)
+        {
+            return ApiConflict(conflitoFuncionario);
         }
 
         var agora = DateTime.UtcNow;
@@ -428,6 +484,20 @@ public class EscalasController : BaseApiController
         if (vinculoNovoExistente is not null && vinculoNovoExistente.Pago)
         {
             return ApiConflict("Funcionário novo já possui vínculo pago neste evento e não pode ser reativado.");
+        }
+
+        var conflito = await _conflitoService.ValidarConflitoFuncionarioAsync(
+            eventoId,
+            request.FuncionarioNovoId,
+            funcionarioNovo.NomeCompleto,
+            evento.DataEvento,
+            evento.HoraInicio,
+            evento.HoraFim,
+            cancellationToken);
+
+        if (conflito is not null)
+        {
+            return ApiConflict(conflito);
         }
 
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
