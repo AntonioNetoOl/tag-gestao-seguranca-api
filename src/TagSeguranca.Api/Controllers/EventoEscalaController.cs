@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using TagSeguranca.Api.Application.Escalas;
@@ -110,6 +111,8 @@ public class EscalasController : BaseApiController
                 ef => ef.EventoId == eventoId && ef.FuncionarioId == request.FuncionarioId,
                 cancellationToken);
 
+        var agora = DateTime.UtcNow;
+
         if (vinculoExistente is not null)
         {
             if (!vinculoExistente.Removido)
@@ -124,7 +127,17 @@ public class EscalasController : BaseApiController
 
             vinculoExistente.Removido = false;
             vinculoExistente.MotivoRemocao = null;
-            vinculoExistente.DataAlteracao = DateTime.UtcNow;
+            vinculoExistente.DataAlteracao = agora;
+            vinculoExistente.UsuarioAlteracaoId = ObterUsuarioAtualId();
+
+            RegistrarHistorico(
+                eventoId,
+                "ReativarFuncionario",
+                vinculoExistente.Id,
+                funcionarioAnteriorId: null,
+                funcionarioNovoId: vinculoExistente.FuncionarioId,
+                motivo: "Funcionário reativado na escala.",
+                dataAcao: agora);
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -139,10 +152,21 @@ public class EscalasController : BaseApiController
             FuncionarioId = request.FuncionarioId,
             Pago = false,
             Removido = false,
-            DataCriacao = DateTime.UtcNow
+            DataCriacao = agora,
+            UsuarioCriacaoId = ObterUsuarioAtualId()
         };
 
         _context.EventoFuncionarios.Add(eventoFuncionario);
+
+        RegistrarHistorico(
+            eventoId,
+            "AdicionarFuncionario",
+            eventoFuncionario.Id,
+            funcionarioAnteriorId: null,
+            funcionarioNovoId: request.FuncionarioId,
+            motivo: null,
+            dataAcao: agora);
+
         await _context.SaveChangesAsync(cancellationToken);
 
         var response = await BuscarResponsePorId(eventoFuncionario.Id, cancellationToken);
@@ -186,8 +210,18 @@ public class EscalasController : BaseApiController
             return NoContent();
         }
 
+        var agora = DateTime.UtcNow;
         evento.Status = EventoStatus.Escalado;
-        evento.DataAlteracao = DateTime.UtcNow;
+        evento.DataAlteracao = agora;
+
+        RegistrarHistorico(
+            eventoId,
+            "FinalizarEscala",
+            eventoFuncionarioId: null,
+            funcionarioAnteriorId: null,
+            funcionarioNovoId: null,
+            motivo: "Escala finalizada pelo usuário.",
+            dataAcao: agora);
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -230,8 +264,18 @@ public class EscalasController : BaseApiController
             return ApiConflict("Escala com funcionário pago não pode ter finalização cancelada.");
         }
 
+        var agora = DateTime.UtcNow;
         evento.Status = EventoStatus.Rascunho;
-        evento.DataAlteracao = DateTime.UtcNow;
+        evento.DataAlteracao = agora;
+
+        RegistrarHistorico(
+            eventoId,
+            "CancelarFinalizacaoEscala",
+            eventoFuncionarioId: null,
+            funcionarioAnteriorId: null,
+            funcionarioNovoId: null,
+            motivo: "Finalização da escala cancelada pelo usuário.",
+            dataAcao: agora);
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -281,12 +325,24 @@ public class EscalasController : BaseApiController
             return ApiBadRequest("Informe o motivo da remoção para escalas finalizadas.");
         }
 
-        vinculo.Removido = true;
-        vinculo.MotivoRemocao = string.IsNullOrWhiteSpace(motivo)
+        var agora = DateTime.UtcNow;
+        var motivoFinal = string.IsNullOrWhiteSpace(motivo)
             ? "Removido da escala"
             : motivo;
 
-        vinculo.DataAlteracao = DateTime.UtcNow;
+        vinculo.Removido = true;
+        vinculo.MotivoRemocao = motivoFinal;
+        vinculo.DataAlteracao = agora;
+        vinculo.UsuarioAlteracaoId = ObterUsuarioAtualId();
+
+        RegistrarHistorico(
+            eventoId,
+            "RemoverFuncionario",
+            vinculo.Id,
+            funcionarioAnteriorId: funcionarioId,
+            funcionarioNovoId: null,
+            motivo: motivoFinal,
+            dataAcao: agora);
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -377,12 +433,14 @@ public class EscalasController : BaseApiController
         await using var transaction = await _context.Database.BeginTransactionAsync(cancellationToken);
 
         var agora = DateTime.UtcNow;
-
-        vinculoAntigo.Removido = true;
-        vinculoAntigo.MotivoRemocao = string.IsNullOrWhiteSpace(request.Motivo)
+        var motivo = string.IsNullOrWhiteSpace(request.Motivo)
             ? "Substituído por outro funcionário"
             : request.Motivo.Trim();
+
+        vinculoAntigo.Removido = true;
+        vinculoAntigo.MotivoRemocao = motivo;
         vinculoAntigo.DataAlteracao = agora;
+        vinculoAntigo.UsuarioAlteracaoId = ObterUsuarioAtualId();
 
         EventoFuncionario vinculoNovo;
 
@@ -391,6 +449,7 @@ public class EscalasController : BaseApiController
             vinculoNovoExistente.Removido = false;
             vinculoNovoExistente.MotivoRemocao = null;
             vinculoNovoExistente.DataAlteracao = agora;
+            vinculoNovoExistente.UsuarioAlteracaoId = ObterUsuarioAtualId();
 
             vinculoNovo = vinculoNovoExistente;
         }
@@ -402,11 +461,22 @@ public class EscalasController : BaseApiController
                 FuncionarioId = request.FuncionarioNovoId,
                 Pago = false,
                 Removido = false,
-                DataCriacao = agora
+                DataCriacao = agora,
+                UsuarioCriacaoId = ObterUsuarioAtualId()
             };
 
             _context.EventoFuncionarios.Add(vinculoNovo);
         }
+
+        RegistrarHistorico(
+            eventoId,
+            "SubstituirFuncionario",
+            vinculoAntigo.Id,
+            funcionarioAnteriorId: request.FuncionarioAntigoId,
+            funcionarioNovoId: request.FuncionarioNovoId,
+            motivo: motivo,
+            dataAcao: agora,
+            observacao: $"Novo vínculo: {vinculoNovo.Id}");
 
         await _context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -414,6 +484,36 @@ public class EscalasController : BaseApiController
         var response = await BuscarResponsePorId(vinculoNovo.Id, cancellationToken);
 
         return Ok(response);
+    }
+
+    private void RegistrarHistorico(
+        Guid eventoId,
+        string acao,
+        Guid? eventoFuncionarioId,
+        Guid? funcionarioAnteriorId,
+        Guid? funcionarioNovoId,
+        string? motivo,
+        DateTime dataAcao,
+        string? observacao = null)
+    {
+        _context.EventoFuncionarioHistoricos.Add(new EventoFuncionarioHistorico
+        {
+            EventoId = eventoId,
+            EventoFuncionarioId = eventoFuncionarioId,
+            FuncionarioAnteriorId = funcionarioAnteriorId,
+            FuncionarioNovoId = funcionarioNovoId,
+            Acao = acao,
+            Motivo = motivo,
+            Observacao = observacao,
+            UsuarioAcaoId = ObterUsuarioAtualId(),
+            DataAcao = dataAcao
+        });
+    }
+
+    private Guid? ObterUsuarioAtualId()
+    {
+        var valor = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(valor, out var usuarioId) ? usuarioId : null;
     }
 
     private async Task<EventoFuncionarioResponse> BuscarResponsePorId(
