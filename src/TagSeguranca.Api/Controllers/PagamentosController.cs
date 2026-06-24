@@ -1,10 +1,11 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using TagSeguranca.Api.Application.Common.Pagination;
 using TagSeguranca.Api.Application.Pagamentos;
 using TagSeguranca.Api.Domain.Entities;
 using TagSeguranca.Api.Domain.Enums;
 using TagSeguranca.Api.Infrastructure.Persistence;
-using TagSeguranca.Api.Application.Common.Pagination;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -12,6 +13,7 @@ namespace TagSeguranca.Api.Controllers;
 [Route("api/pagamentos")]
 public class PagamentosController : BaseApiController
 {
+    private const decimal QuantidadeMaximaHorasExtrasPorEvento = 24m;
     private readonly TagDbContext _context;
 
     public PagamentosController(TagDbContext context)
@@ -21,11 +23,11 @@ public class PagamentosController : BaseApiController
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<PagamentoResumoResponse>>> Listar(
-    [FromQuery] string? busca,
-    [FromQuery] DateTime? dataInicio,
-    [FromQuery] DateTime? dataFim,
-    [FromQuery] PagedRequest pagination,
-    CancellationToken cancellationToken)
+        [FromQuery] string? busca,
+        [FromQuery] DateTime? dataInicio,
+        [FromQuery] DateTime? dataFim,
+        [FromQuery] PagedRequest pagination,
+        CancellationToken cancellationToken)
     {
         var query = _context.Pagamentos
             .AsNoTracking()
@@ -43,36 +45,36 @@ public class PagamentosController : BaseApiController
 
         if (dataInicio.HasValue)
         {
-            var inicio = DateTime.SpecifyKind(dataInicio.Value.Date, DateTimeKind.Utc);
-            query = query.Where(p => p.DataPagamento >= inicio);
+            var inicioUtc = ConverterDataOperacionalParaUtc(dataInicio.Value.Date);
+            query = query.Where(p => p.DataPagamento >= inicioUtc);
         }
 
         if (dataFim.HasValue)
         {
-            var fimExclusivo = DateTime.SpecifyKind(dataFim.Value.Date.AddDays(1), DateTimeKind.Utc);
-            query = query.Where(p => p.DataPagamento < fimExclusivo);
+            var fimUtcExclusivo = ConverterDataOperacionalParaUtc(dataFim.Value.Date.AddDays(1));
+            query = query.Where(p => p.DataPagamento < fimUtcExclusivo);
         }
 
         var pagamentos = await query
-    .OrderByDescending(p => p.DataPagamento)
-    .Select(p => new PagamentoResumoResponse
-    {
-        Id = p.Id,
-        FuncionarioId = p.FuncionarioId,
-        NomeCompleto = p.Funcionario.NomeCompleto,
-        Rg = p.Funcionario.Rg,
-        Cpf = p.Funcionario.Cpf,
-        MeioPagamento = ObterMeioPagamento(p.Funcionario.ChavePix, p.Funcionario.Cpf),
-        DataPagamento = p.DataPagamento,
-        ValorTotal = p.ValorTotal,
-        TotalHorasExtras = p.TotalHorasExtras,
-        QuantidadeEventos = p.QuantidadeEventos,
-        Status = p.Status.ToString()
-    })
-    .ToPagedResponseAsync(
-        pagination.Page,
-        pagination.PageSize,
-        cancellationToken);
+            .OrderByDescending(p => p.DataPagamento)
+            .Select(p => new PagamentoResumoResponse
+            {
+                Id = p.Id,
+                FuncionarioId = p.FuncionarioId,
+                NomeCompleto = p.Funcionario.NomeCompleto,
+                Rg = p.Funcionario.Rg,
+                Cpf = p.Funcionario.Cpf,
+                MeioPagamento = ObterMeioPagamento(p.Funcionario.ChavePix, p.Funcionario.Cpf),
+                DataPagamento = p.DataPagamento,
+                ValorTotal = p.ValorTotal,
+                TotalHorasExtras = p.TotalHorasExtras,
+                QuantidadeEventos = p.QuantidadeEventos,
+                Status = p.Status.ToString()
+            })
+            .ToPagedResponseAsync(
+                pagination.Page,
+                pagination.PageSize,
+                cancellationToken);
 
         return Ok(pagamentos);
     }
@@ -111,7 +113,7 @@ public class PagamentosController : BaseApiController
 
         if (pendencias.Count == 0)
         {
-            return ApiConflict("Funcionário não possui pagamentos pendentes.");
+            return ApiConflict("Este funcionário não possui mais pagamentos pendentes. O pagamento pode já ter sido confirmado por outro usuário.");
         }
 
         var idsPendentes = pendencias
@@ -143,15 +145,18 @@ public class PagamentosController : BaseApiController
         await using var transaction = await _context.Database
             .BeginTransactionAsync(cancellationToken);
 
+        var agora = DateTime.UtcNow;
+        var usuarioAtualId = ObterUsuarioAtualId();
         var itensPorEventoFuncionario = request.Itens
             .ToDictionary(i => i.EventoFuncionarioId, i => i);
 
         var pagamento = new Pagamento
         {
             FuncionarioId = funcionario.Id,
-            DataPagamento = DateTime.UtcNow,
+            DataPagamento = agora,
             Status = PagamentoStatus.Confirmado,
-            DataCriacao = DateTime.UtcNow,
+            UsuarioPagamentoId = usuarioAtualId,
+            DataCriacao = agora,
             QuantidadeEventos = pendencias.Count
         };
 
@@ -177,7 +182,8 @@ public class PagamentosController : BaseApiController
             pagamento.Itens.Add(pagamentoItem);
 
             pendencia.Pago = true;
-            pendencia.DataAlteracao = DateTime.UtcNow;
+            pendencia.DataAlteracao = agora;
+            pendencia.UsuarioAlteracaoId = usuarioAtualId;
         }
 
         pagamento.TotalHorasExtras = pagamento.Itens.Sum(i => i.QuantidadeHorasExtras);
@@ -230,6 +236,7 @@ public class PagamentosController : BaseApiController
                 Status = p.Status.ToString(),
                 Itens = p.Itens
                     .OrderBy(i => i.EventoFuncionario.Evento.DataEvento)
+                    .ThenBy(i => i.EventoFuncionario.Evento.HoraInicio)
                     .Select(i => new PagamentoConfirmadoItemResponse
                     {
                         Id = i.Id,
@@ -246,6 +253,12 @@ public class PagamentosController : BaseApiController
                     .ToList()
             })
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private Guid? ObterUsuarioAtualId()
+    {
+        var valor = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return Guid.TryParse(valor, out var usuarioId) ? usuarioId : null;
     }
 
     private static string? ValidarRequest(ConfirmarPagamentoRequest request)
@@ -270,7 +283,34 @@ public class PagamentosController : BaseApiController
             return "A quantidade de horas extras não pode ser negativa.";
         }
 
+        if (request.Itens.Any(i => i.QuantidadeHorasExtras > QuantidadeMaximaHorasExtrasPorEvento))
+        {
+            return $"A quantidade de horas extras por evento não pode ser maior que {QuantidadeMaximaHorasExtrasPorEvento:0.##}.";
+        }
+
         return null;
+    }
+
+    private static DateTime ConverterDataOperacionalParaUtc(DateTime dataOperacional)
+    {
+        var dataLocal = DateTime.SpecifyKind(dataOperacional.Date, DateTimeKind.Unspecified);
+
+        foreach (var timeZoneId in new[] { "America/Sao_Paulo", "E. South America Standard Time" })
+        {
+            try
+            {
+                var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+                return TimeZoneInfo.ConvertTimeToUtc(dataLocal, timeZone);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
+            catch (InvalidTimeZoneException)
+            {
+            }
+        }
+
+        return DateTime.SpecifyKind(dataLocal.AddHours(3), DateTimeKind.Utc);
     }
 
     private static string ObterMeioPagamento(string? chavePix, string cpf)
