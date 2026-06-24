@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using TagSeguranca.Api.Application.Common.Pagination;
 using TagSeguranca.Api.Application.Eventos;
+using TagSeguranca.Api.Application.Eventos.Services;
+using TagSeguranca.Api.Application.Relatorios.Services;
 using TagSeguranca.Api.Domain.Entities;
 using TagSeguranca.Api.Domain.Enums;
 using TagSeguranca.Api.Infrastructure.Persistence;
-using TagSeguranca.Api.Application.Eventos.Services;
-using TagSeguranca.Api.Application.Relatorios.Services;
-using TagSeguranca.Api.Application.Common.Pagination;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -18,6 +18,7 @@ public class EventosController : BaseApiController
     private readonly EventoFinalizacaoService _finalizacaoService;
     private readonly EscalaExcelService _escalaExcelService;
     private readonly RelatoriosPdfService _relatoriosPdfService;
+    private readonly EventoConflitoService _conflitoService;
 
     public EventosController(
         TagDbContext context,
@@ -29,6 +30,7 @@ public class EventosController : BaseApiController
         _escalaExcelService = escalaExcelService;
         _finalizacaoService = eventoFinalizacaoService;
         _relatoriosPdfService = relatoriosPdfService;
+        _conflitoService = new EventoConflitoService(context);
     }
 
     [HttpPost("finalizar-vencidos")]
@@ -235,6 +237,19 @@ public class EventosController : BaseApiController
             return ApiBadRequest("O tipo de evento informado não existe.");
         }
 
+        var conflitoCasa = await _conflitoService.ValidarConflitoCasaAsync(
+            eventoIdIgnorado: null,
+            request.CasaId,
+            request.DataEvento.Date,
+            request.HoraInicio,
+            request.HoraFim,
+            cancellationToken);
+
+        if (conflitoCasa is not null)
+        {
+            return ApiConflict(conflitoCasa);
+        }
+
         var evento = new Evento
         {
             CasaId = request.CasaId,
@@ -307,6 +322,31 @@ public class EventosController : BaseApiController
         if (!tipoEventoExiste)
         {
             return ApiBadRequest("O tipo de evento informado não existe.");
+        }
+
+        var conflitoCasa = await _conflitoService.ValidarConflitoCasaAsync(
+            id,
+            request.CasaId,
+            request.DataEvento.Date,
+            request.HoraInicio,
+            request.HoraFim,
+            cancellationToken);
+
+        if (conflitoCasa is not null)
+        {
+            return ApiConflict(conflitoCasa);
+        }
+
+        var conflitoFuncionario = await _conflitoService.ValidarConflitosFuncionariosDaEscalaAsync(
+            id,
+            request.DataEvento.Date,
+            request.HoraInicio,
+            request.HoraFim,
+            cancellationToken);
+
+        if (conflitoFuncionario is not null)
+        {
+            return ApiConflict(conflitoFuncionario);
         }
 
         evento.CasaId = request.CasaId;
@@ -417,6 +457,11 @@ public class EventosController : BaseApiController
         if (request.DataEvento.Date < hojeOperacional)
         {
             return $"A data do evento não pode ser anterior a hoje ({hojeOperacional:dd/MM/yyyy}).";
+        }
+
+        if (request.HoraInicio == request.HoraFim)
+        {
+            return "O horário final deve ser diferente do horário inicial.";
         }
 
         if (request.ValorDiaria <= 0)
