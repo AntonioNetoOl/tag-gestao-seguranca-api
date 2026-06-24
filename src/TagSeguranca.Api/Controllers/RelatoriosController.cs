@@ -29,6 +29,12 @@ public class RelatoriosController : BaseApiController
         [FromQuery] string? nomeEvento,
         CancellationToken cancellationToken)
     {
+        var erroPeriodo = ValidarPeriodoEscala(dataInicio, dataFim);
+        if (erroPeriodo is not null)
+        {
+            return ApiBadRequest(erroPeriodo);
+        }
+
         var arquivo = await _escalaExcelService.GerarEscalaGeralAsync(
             casaId,
             dataInicio,
@@ -46,9 +52,9 @@ public class RelatoriosController : BaseApiController
 
     [HttpGet("pagamentos/excel")]
     public async Task<IActionResult> ExportarPagamentosExcel(
-    [FromQuery] string? busca,
-    [FromQuery] DateTime? dataInicio,
-    [FromQuery] DateTime? dataFim)
+        [FromQuery] string? busca,
+        [FromQuery] DateTime? dataInicio,
+        [FromQuery] DateTime? dataFim)
     {
         var arquivo = await _pagamentosExcelService.GerarAsync(busca, dataInicio, dataFim);
 
@@ -63,12 +69,18 @@ public class RelatoriosController : BaseApiController
 
     [HttpGet("escalas/pdf")]
     public async Task<IActionResult> ExportarEscalasPdf(
-    [FromQuery] Guid? casaId,
-    [FromQuery] DateTime? dataInicio,
-    [FromQuery] DateTime? dataFim,
-    [FromQuery] string? nomeEvento,
-    CancellationToken cancellationToken)
+        [FromQuery] Guid? casaId,
+        [FromQuery] DateTime? dataInicio,
+        [FromQuery] DateTime? dataFim,
+        [FromQuery] string? nomeEvento,
+        CancellationToken cancellationToken)
     {
+        var erroPeriodo = ValidarPeriodoEscala(dataInicio, dataFim);
+        if (erroPeriodo is not null)
+        {
+            return ApiBadRequest(erroPeriodo);
+        }
+
         var arquivo = await _relatoriosPdfService.GerarEscalaGeralAsync(
             casaId,
             dataInicio,
@@ -105,5 +117,20 @@ public class RelatoriosController : BaseApiController
             "application/pdf",
             nomeArquivo
         );
+    }
+
+    private static string? ValidarPeriodoEscala(DateTime? dataInicio, DateTime? dataFim)
+    {
+        if (!dataInicio.HasValue || !dataFim.HasValue)
+        {
+            return "Informe a data inicial e a data final para emitir o relatório de escala.";
+        }
+
+        if (dataInicio.Value.Date > dataFim.Value.Date)
+        {
+            return "A data inicial não pode ser maior que a data final.";
+        }
+
+        return null;
     }
 }
