@@ -21,11 +21,18 @@ public static class SchemaInitializer
 
         await context.Database.ExecuteSqlRawAsync("""
             INSERT INTO funcoes_funcionario (id, nome, ativo, data_criacao)
-            VALUES
-                ('11111111-1111-1111-1111-111111111001', 'Segurança', true, NOW()),
-                ('11111111-1111-1111-1111-111111111002', 'Líder', true, NOW()),
-                ('11111111-1111-1111-1111-111111111003', 'Coordenador', true, NOW())
-            ON CONFLICT DO NOTHING;
+            SELECT v.id, v.nome, true, NOW()
+            FROM (VALUES
+                (CAST('11111111-1111-1111-1111-111111111001' AS uuid), 'Segurança'),
+                (CAST('11111111-1111-1111-1111-111111111002' AS uuid), 'Líder'),
+                (CAST('11111111-1111-1111-1111-111111111003' AS uuid), 'Coordenador')
+            ) AS v(id, nome)
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM funcoes_funcionario ff
+                WHERE ff.id = v.id
+                   OR (ff.ativo = true AND lower(ff.nome) = lower(v.nome))
+            );
             """, cancellationToken);
 
         await context.Database.ExecuteSqlRawAsync("""
