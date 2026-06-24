@@ -71,6 +71,7 @@ public static class SchemaInitializer
             """, cancellationToken);
 
         await EnsureTiposEventoSchemaAsync(context, cancellationToken);
+        await EnsureEventoFuncionarioHistoricoSchemaAsync(context, cancellationToken);
         await EnsureSoftDeleteUniqueIndexesAsync(context, cancellationToken);
     }
 
@@ -85,6 +86,91 @@ public static class SchemaInitializer
             UPDATE tipos_evento
             SET ativo = true
             WHERE ativo IS NULL;
+            """, cancellationToken);
+    }
+
+    private static async Task EnsureEventoFuncionarioHistoricoSchemaAsync(TagDbContext context, CancellationToken cancellationToken)
+    {
+        await context.Database.ExecuteSqlRawAsync("""
+            CREATE TABLE IF NOT EXISTS evento_funcionarios_historico (
+                id uuid NOT NULL,
+                evento_id uuid NOT NULL,
+                evento_funcionario_id uuid NULL,
+                funcionario_anterior_id uuid NULL,
+                funcionario_novo_id uuid NULL,
+                acao character varying(50) NOT NULL,
+                motivo character varying(500) NULL,
+                observacao character varying(1000) NULL,
+                usuario_acao_id uuid NULL,
+                data_acao timestamp with time zone NOT NULL DEFAULT NOW(),
+                CONSTRAINT pk_evento_funcionarios_historico PRIMARY KEY (id)
+            );
+            """, cancellationToken);
+
+        await context.Database.ExecuteSqlRawAsync("""
+            CREATE INDEX IF NOT EXISTS ix_evento_funcionarios_historico_evento_id
+                ON evento_funcionarios_historico (evento_id);
+
+            CREATE INDEX IF NOT EXISTS ix_evento_funcionarios_historico_evento_funcionario_id
+                ON evento_funcionarios_historico (evento_funcionario_id);
+
+            CREATE INDEX IF NOT EXISTS ix_evento_funcionarios_historico_data_acao
+                ON evento_funcionarios_historico (data_acao);
+            """, cancellationToken);
+
+        await context.Database.ExecuteSqlRawAsync("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'fk_evento_funcionarios_historico_eventos_evento_id'
+                ) THEN
+                    ALTER TABLE evento_funcionarios_historico
+                        ADD CONSTRAINT fk_evento_funcionarios_historico_eventos_evento_id
+                        FOREIGN KEY (evento_id)
+                        REFERENCES eventos(id)
+                        ON DELETE RESTRICT;
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'fk_evento_funcionarios_historico_evento_funcionarios_evento_funcionario_id'
+                ) THEN
+                    ALTER TABLE evento_funcionarios_historico
+                        ADD CONSTRAINT fk_evento_funcionarios_historico_evento_funcionarios_evento_funcionario_id
+                        FOREIGN KEY (evento_funcionario_id)
+                        REFERENCES evento_funcionarios(id)
+                        ON DELETE RESTRICT;
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'fk_evento_funcionarios_historico_funcionarios_funcionario_anterior_id'
+                ) THEN
+                    ALTER TABLE evento_funcionarios_historico
+                        ADD CONSTRAINT fk_evento_funcionarios_historico_funcionarios_funcionario_anterior_id
+                        FOREIGN KEY (funcionario_anterior_id)
+                        REFERENCES funcionarios(id)
+                        ON DELETE RESTRICT;
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'fk_evento_funcionarios_historico_funcionarios_funcionario_novo_id'
+                ) THEN
+                    ALTER TABLE evento_funcionarios_historico
+                        ADD CONSTRAINT fk_evento_funcionarios_historico_funcionarios_funcionario_novo_id
+                        FOREIGN KEY (funcionario_novo_id)
+                        REFERENCES funcionarios(id)
+                        ON DELETE RESTRICT;
+                END IF;
+
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_constraint WHERE conname = 'fk_evento_funcionarios_historico_usuarios_usuario_acao_id'
+                ) THEN
+                    ALTER TABLE evento_funcionarios_historico
+                        ADD CONSTRAINT fk_evento_funcionarios_historico_usuarios_usuario_acao_id
+                        FOREIGN KEY (usuario_acao_id)
+                        REFERENCES usuarios(id)
+                        ON DELETE SET NULL;
+                END IF;
+            END $$;
             """, cancellationToken);
     }
 
