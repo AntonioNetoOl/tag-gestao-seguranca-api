@@ -87,6 +87,11 @@ public class EscalasController : BaseApiController
             return ApiConflict("Evento cancelado não pode receber funcionários.");
         }
 
+        if (evento.Status != EventoStatus.Rascunho)
+        {
+            return ApiConflict("Após finalizar a escala, não é possível adicionar novos funcionários.");
+        }
+
         var funcionario = await _context.Funcionarios
             .FirstOrDefaultAsync(f => f.Id == request.FuncionarioId, cancellationToken);
 
