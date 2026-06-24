@@ -59,10 +59,10 @@ public class EscalaExcelService
         worksheet.Cell("B6").Value = evento.TipoEvento.Nome;
 
         worksheet.Cell("A7").Value = "Data:";
-        worksheet.Cell("B7").Value = evento.DataEvento.ToString("dd/MM/yyyy");
+        worksheet.Cell("B7").Value = FormatarPeriodoEvento(evento);
 
         worksheet.Cell("A8").Value = "Horário:";
-        worksheet.Cell("B8").Value = $"{evento.HoraInicio:hh\\:mm} às {evento.HoraFim:hh\\:mm}";
+        worksheet.Cell("B8").Value = FormatarHorarioEvento(evento);
 
         worksheet.Cell("A9").Value = "Status:";
         worksheet.Cell("B9").Value = evento.Status.ToString();
@@ -124,9 +124,7 @@ public class EscalaExcelService
             .Include(e => e.TipoEvento)
             .Include(e => e.Funcionarios.Where(ef => !ef.Removido))
                 .ThenInclude(ef => ef.Funcionario)
-            .Where(e =>
-                e.Status != EventoStatus.Finalizado &&
-                e.Status != EventoStatus.Cancelado)
+            .Where(e => e.Status == EventoStatus.Escalado)
             .AsQueryable();
 
         if (casaId.HasValue)
@@ -217,8 +215,6 @@ public class EscalaExcelService
         worksheet.SheetView.FreezeRows(4);
         worksheet.Columns().AdjustToContents();
 
-        worksheet.Columns().AdjustToContents();
-
         using var stream = new MemoryStream();
         workbook.SaveAs(stream);
 
@@ -231,9 +227,9 @@ public class EscalaExcelService
     Domain.Entities.Evento evento,
     Domain.Entities.EventoFuncionario? vinculo)
     {
-        worksheet.Cell(linha, 1).Value = evento.DataEvento.ToString("dd/MM/yyyy");
+        worksheet.Cell(linha, 1).Value = FormatarPeriodoEvento(evento);
         worksheet.Cell(linha, 2).Value = evento.Casa.Nome;
-        worksheet.Cell(linha, 3).Value = $"{evento.HoraInicio:hh\\:mm} às {evento.HoraFim:hh\\:mm}";
+        worksheet.Cell(linha, 3).Value = FormatarHorarioEvento(evento);
         worksheet.Cell(linha, 4).Value = evento.TipoEvento.Nome;
         worksheet.Cell(linha, 5).Value = evento.Nome;
         worksheet.Cell(linha, 6).Value = vinculo?.Funcionario.NomeCompleto ?? string.Empty;
@@ -278,6 +274,16 @@ public class EscalaExcelService
         range.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
     }
 
-    
+    private static string FormatarPeriodoEvento(Domain.Entities.Evento evento)
+    {
+        var dataInicio = evento.DataEvento.ToString("dd/MM/yyyy");
+        return evento.HoraFim < evento.HoraInicio
+            ? $"{dataInicio} - {evento.DataEvento.AddDays(1):dd/MM/yyyy}"
+            : dataInicio;
+    }
 
+    private static string FormatarHorarioEvento(Domain.Entities.Evento evento)
+    {
+        return $"{evento.HoraInicio:hh\\:mm} às {evento.HoraFim:hh\\:mm}";
+    }
 }
