@@ -20,10 +20,10 @@ public class EventosController : BaseApiController
     private readonly RelatoriosPdfService _relatoriosPdfService;
 
     public EventosController(
-    TagDbContext context,
-    EscalaExcelService escalaExcelService,
-    EventoFinalizacaoService eventoFinalizacaoService,
-    RelatoriosPdfService relatoriosPdfService)
+        TagDbContext context,
+        EscalaExcelService escalaExcelService,
+        EventoFinalizacaoService eventoFinalizacaoService,
+        RelatoriosPdfService relatoriosPdfService)
     {
         _context = context;
         _escalaExcelService = escalaExcelService;
@@ -33,7 +33,7 @@ public class EventosController : BaseApiController
 
     [HttpPost("finalizar-vencidos")]
     public async Task<ActionResult<EventoFinalizacaoResultado>> FinalizarVencidos(
-    CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
         var resultado = await _finalizacaoService
             .FinalizarEventosVencidosAsync(cancellationToken);
@@ -48,12 +48,26 @@ public class EventosController : BaseApiController
         [FromQuery] DateTime? dataFim,
         [FromQuery] string? nome,
         [FromQuery] EventoStatus? status,
+        [FromQuery] bool apenasOperacao,
         [FromQuery] PagedRequest pagination,
         CancellationToken cancellationToken)
     {
         var query = _context.Eventos
             .AsNoTracking()
             .AsQueryable();
+
+        if (apenasOperacao)
+        {
+            var limiteFinalizados = DateTime.UtcNow.AddHours(-24);
+            var limiteData = limiteFinalizados.Date;
+            var limiteHora = limiteFinalizados.TimeOfDay;
+
+            query = query.Where(e =>
+                e.Status != EventoStatus.Cancelado &&
+                (e.Status != EventoStatus.Finalizado ||
+                 e.DataEvento > limiteData ||
+                 (e.DataEvento == limiteData && e.HoraFim >= limiteHora)));
+        }
 
         if (casaId.HasValue)
         {
@@ -84,30 +98,30 @@ public class EventosController : BaseApiController
         }
 
         var eventos = await query
-    .OrderBy(e => e.DataEvento)
-    .ThenBy(e => e.HoraInicio)
-    .Select(e => new EventoResponse
-    {
-        Id = e.Id,
-        CasaId = e.CasaId,
-        CasaNome = e.Casa.Nome,
-        TipoEventoId = e.TipoEventoId,
-        TipoEventoNome = e.TipoEvento.Nome,
-        Nome = e.Nome,
-        DataEvento = e.DataEvento,
-        HoraInicio = e.HoraInicio,
-        HoraFim = e.HoraFim,
-        ValorDiaria = e.ValorDiaria,
-        ValorHoraExtra = e.ValorHoraExtra,
-        Status = e.Status.ToString(),
-        QuantidadeFuncionarios = e.Funcionarios.Count(f => !f.Removido),
-        DataCriacao = e.DataCriacao,
-        DataAlteracao = e.DataAlteracao
-    })
-    .ToPagedResponseAsync(
-        pagination.Page,
-        pagination.PageSize,
-        cancellationToken);
+            .OrderBy(e => e.DataEvento)
+            .ThenBy(e => e.HoraInicio)
+            .Select(e => new EventoResponse
+            {
+                Id = e.Id,
+                CasaId = e.CasaId,
+                CasaNome = e.Casa.Nome,
+                TipoEventoId = e.TipoEventoId,
+                TipoEventoNome = e.TipoEvento.Nome,
+                Nome = e.Nome,
+                DataEvento = e.DataEvento,
+                HoraInicio = e.HoraInicio,
+                HoraFim = e.HoraFim,
+                ValorDiaria = e.ValorDiaria,
+                ValorHoraExtra = e.ValorHoraExtra,
+                Status = e.Status.ToString(),
+                QuantidadeFuncionarios = e.Funcionarios.Count(f => !f.Removido),
+                DataCriacao = e.DataCriacao,
+                DataAlteracao = e.DataAlteracao
+            })
+            .ToPagedResponseAsync(
+                pagination.Page,
+                pagination.PageSize,
+                cancellationToken);
 
         return Ok(eventos);
     }
@@ -150,8 +164,8 @@ public class EventosController : BaseApiController
 
     [HttpGet("{id:guid}/escala/excel")]
     public async Task<IActionResult> ExportarEscalaExcel(
-    Guid id,
-    CancellationToken cancellationToken)
+        Guid id,
+        CancellationToken cancellationToken)
     {
         var arquivo = await _escalaExcelService
             .GerarEscalaEventoAsync(id, cancellationToken);
@@ -171,8 +185,8 @@ public class EventosController : BaseApiController
 
     [HttpGet("{id:guid}/escala/pdf")]
     public async Task<IActionResult> ExportarEscalaPdf(
-    Guid id,
-    CancellationToken cancellationToken)
+        Guid id,
+        CancellationToken cancellationToken)
     {
         var arquivo = await _relatoriosPdfService.GerarEscalaEventoAsync(id, cancellationToken);
 
