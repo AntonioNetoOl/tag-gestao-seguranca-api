@@ -13,6 +13,7 @@ Este arquivo registra os ajustes backend feitos durante a etapa de Operação / 
 - Criado endpoint `POST /api/eventos/{eventoId}/funcionarios/cancelar-finalizacao` para voltar a escala de `Escalado` para `Rascunho`, com bloqueio para evento finalizado/cancelado e vínculo pago.
 - Criada tabela `evento_funcionarios_historico` para auditar as ações de escala: adicionar, reativar, remover, substituir, finalizar escala e cancelar finalização.
 - Cada histórico registra evento, vínculo quando aplicável, funcionário anterior, funcionário novo, ação, motivo, observação, usuário e data da ação.
+- Adicionada migration `20260624120000_AddEventoFuncionarioHistorico` para versionar formalmente a criação da tabela de histórico.
 
 ## Motivo
 
