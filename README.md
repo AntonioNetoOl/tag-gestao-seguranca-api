@@ -19,7 +19,7 @@ tag-gestao-seguranca
 - PostgreSQL
 - Entity Framework Core
 - JWT Auth
-- Exportação de relatórios em Excel
+- Exportação de relatórios em Excel/PDF
 - Rotina em background para finalização automática de eventos
 
 ## Estrutura inicial
@@ -78,6 +78,50 @@ Para criar a tabela, use a migration do EF ou execute diretamente o script:
 
 ```text
 database/scripts/20260619_add_funcoes_funcionario.sql
+```
+
+## Operação de eventos e escala
+
+A branch `feature/operacao-escala-evento` implementa a operação de eventos, montagem de escala, finalização explícita da escala, emissão de relatório e auditoria operacional.
+
+Endpoints principais:
+
+```text
+GET    /api/eventos?apenasOperacao=true
+POST   /api/eventos
+PUT    /api/eventos/{id}
+DELETE /api/eventos/{id}
+GET    /api/eventos/{id}/escala/excel
+GET    /api/eventos/{id}/escala/pdf
+GET    /api/eventos/{eventoId}/funcionarios
+POST   /api/eventos/{eventoId}/funcionarios
+POST   /api/eventos/{eventoId}/funcionarios/finalizar
+POST   /api/eventos/{eventoId}/funcionarios/cancelar-finalizacao
+DELETE /api/eventos/{eventoId}/funcionarios/{funcionarioId}
+POST   /api/eventos/{eventoId}/funcionarios/substituir
+```
+
+Regras centrais:
+
+- evento nasce em `Rascunho`;
+- adicionar funcionário não finaliza a escala;
+- `Escalado` só ocorre ao confirmar `Finalizar escala`;
+- evento `Escalado` bloqueia edição cadastral até cancelar a finalização da escala;
+- evento `Finalizado` bloqueia edição cadastral;
+- remoção em escala finalizada exige justificativa;
+- vínculo pago não pode ser removido ou substituído;
+- histórico de ações da escala é gravado em `evento_funcionarios_historico`.
+
+Migration relacionada:
+
+```text
+20260624120000_AddEventoFuncionarioHistorico
+```
+
+Documentação complementar:
+
+```text
+docs/operacao-escala-backend-fix.md
 ```
 
 ## Status
