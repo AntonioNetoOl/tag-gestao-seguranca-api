@@ -82,7 +82,7 @@ public class EscalaPdfService
                     Cooperado = "SEM COOPERADO VINCULADO",
                     Rg = string.Empty,
                     Funcao = string.Empty,
-                    Empresa = "TAG",
+                    Empresa = "Solucao Facilities",
                     Pagamento = FormatMoney(evento.ValorDiaria),
                     HoraExtra = FormatMoney(evento.ValorHoraExtra)
                 });
@@ -102,7 +102,7 @@ public class EscalaPdfService
                     Cooperado = vinculo.Funcionario.NomeCompleto,
                     Rg = vinculo.Funcionario.Rg,
                     Funcao = vinculo.Funcionario.Funcao,
-                    Empresa = "TAG",
+                    Empresa = "Solucao Facilities",
                     Pagamento = FormatMoney(evento.ValorDiaria),
                     HoraExtra = FormatMoney(evento.ValorHoraExtra)
                 });
@@ -206,7 +206,7 @@ public class EscalaPdfService
                 .Background("#1F2937")
                 .PaddingVertical(6)
                 .AlignCenter()
-                .Text("TAG GESTÃO DE SEGURANÇA")
+                .Text("SOLUCAO FACILITIES")
                 .Bold()
                 .FontSize(16)
                 .FontColor(Colors.White);

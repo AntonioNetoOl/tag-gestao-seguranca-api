@@ -46,6 +46,7 @@ public class PagamentosPendentesController : BaseApiController
                 ef.Funcionario.NomeCompleto,
                 ef.Funcionario.Rg,
                 ef.Funcionario.Cpf,
+                ef.Funcionario.Funcao,
                 ef.Funcionario.ChavePix,
                 ef.Evento.ValorDiaria
             })
@@ -58,6 +59,7 @@ public class PagamentosPendentesController : BaseApiController
                 p.NomeCompleto,
                 p.Rg,
                 p.Cpf,
+                p.Funcao,
                 p.ChavePix
             })
             .Select(g => new PagamentoPendenteResumoResponse
@@ -66,6 +68,7 @@ public class PagamentosPendentesController : BaseApiController
                 NomeCompleto = g.Key.NomeCompleto,
                 Rg = g.Key.Rg,
                 Cpf = g.Key.Cpf,
+                Funcao = g.Key.Funcao,
                 MeioPagamento = ObterMeioPagamento(g.Key.ChavePix, g.Key.Cpf),
                 QuantidadeEventos = g.Count(),
                 TotalHorasExtras = 0,
@@ -92,6 +95,7 @@ public class PagamentosPendentesController : BaseApiController
                 f.NomeCompleto,
                 f.Rg,
                 f.Cpf,
+                f.Funcao,
                 f.ChavePix
             })
             .FirstOrDefaultAsync(cancellationToken);
@@ -130,6 +134,7 @@ public class PagamentosPendentesController : BaseApiController
             NomeCompleto = funcionario.NomeCompleto,
             Rg = funcionario.Rg,
             Cpf = funcionario.Cpf,
+            Funcao = funcionario.Funcao,
             MeioPagamento = ObterMeioPagamento(funcionario.ChavePix, funcionario.Cpf),
             QuantidadeEventos = eventos.Count,
             TotalHorasExtras = eventos.Sum(e => e.QuantidadeHorasExtras),

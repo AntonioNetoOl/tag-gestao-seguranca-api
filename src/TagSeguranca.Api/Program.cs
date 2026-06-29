@@ -45,9 +45,9 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo
     {
-        Title = "TAG Gestão de Segurança API",
+        Title = "Solucao Facilities API",
         Version = "v1",
-        Description = "API para gestão de funcionários, casas, tipos de evento, eventos, escalas, pagamentos e dashboard da TAG."
+        Description = "API para gestão de funcionários, casas, tipos de evento, eventos, escalas, pagamentos e dashboard da Solucao Facilities."
     });
 });
 
@@ -97,7 +97,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI(options =>
     {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "TAG Gestão de Segurança API v1");
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Solucao Facilities API v1");
         options.RoutePrefix = "swagger";
     });
 }
@@ -111,14 +111,14 @@ app.MapControllers().RequireAuthorization();
 app.MapGet("/health", () => Results.Ok(new
 {
     status = "ok",
-    service = "TAG Gestão de Segurança API",
+    service = "Solucao Facilities API",
     environment = app.Environment.EnvironmentName,
     timestamp = DateTimeOffset.UtcNow
 }));
 
 app.MapGet("/", () => Results.Ok(new
 {
-    name = "TAG Gestão de Segurança API",
+    name = "Solucao Facilities API",
     version = "0.1.0",
     status = "initial-setup"
 }));
