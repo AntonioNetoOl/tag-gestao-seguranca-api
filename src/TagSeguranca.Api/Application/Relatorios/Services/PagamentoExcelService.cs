@@ -260,7 +260,7 @@ public class PagamentosExcelService
         string subtitulo,
         int totalColunas)
     {
-        worksheet.Cell(1, 1).Value = "TAG GESTÃO DE SEGURANÇA";
+        worksheet.Cell(1, 1).Value = "SOLUCAO FACILITIES";
         worksheet.Range(1, 1, 1, totalColunas).Merge();
 
         worksheet.Cell(1, 1).Style.Font.Bold = true;
