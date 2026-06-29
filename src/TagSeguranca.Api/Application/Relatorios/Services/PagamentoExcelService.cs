@@ -58,14 +58,14 @@ public class PagamentosExcelService
 
         if (dataInicio.HasValue)
         {
-            var inicio = dataInicio.Value.Date;
-            query = query.Where(x => x.DataPagamento >= inicio);
+            var inicioUtc = ConverterDataOperacionalParaUtc(dataInicio.Value.Date);
+            query = query.Where(x => x.DataPagamento >= inicioUtc);
         }
 
         if (dataFim.HasValue)
         {
-            var fimExclusivo = dataFim.Value.Date.AddDays(1);
-            query = query.Where(x => x.DataPagamento < fimExclusivo);
+            var fimUtcExclusivo = ConverterDataOperacionalParaUtc(dataFim.Value.Date.AddDays(1));
+            query = query.Where(x => x.DataPagamento < fimUtcExclusivo);
         }
 
         var todasAsLinhas = await query
@@ -391,6 +391,28 @@ public class PagamentosExcelService
         return filtros.Count == 0
             ? "Sem filtros aplicados"
             : string.Join(" | ", filtros);
+    }
+
+    private static DateTime ConverterDataOperacionalParaUtc(DateTime dataOperacional)
+    {
+        var dataLocal = DateTime.SpecifyKind(dataOperacional.Date, DateTimeKind.Unspecified);
+
+        foreach (var timeZoneId in new[] { "America/Sao_Paulo", "E. South America Standard Time" })
+        {
+            try
+            {
+                var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+                return TimeZoneInfo.ConvertTimeToUtc(dataLocal, timeZone);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+            }
+            catch (InvalidTimeZoneException)
+            {
+            }
+        }
+
+        return DateTime.SpecifyKind(dataLocal.AddHours(3), DateTimeKind.Utc);
     }
 
     private sealed class LinhaPagamentoRelatorio
