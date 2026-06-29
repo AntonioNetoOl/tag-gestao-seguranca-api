@@ -31,6 +31,7 @@ builder.Services.AddHostedService<EventosFinalizacaoBackgroundService>();
 builder.Services.AddScoped<EscalaExcelService>();
 builder.Services.AddScoped<EscalaPdfService>();
 builder.Services.AddScoped<PagamentosExcelService>();
+builder.Services.AddScoped<PagamentosPdfService>();
 builder.Services.AddScoped<RelatoriosPdfService>();
 
 builder.Services.AddCors(options =>
