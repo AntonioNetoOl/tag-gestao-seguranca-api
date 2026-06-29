@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
 using TagSeguranca.Api.Application.Relatorios.Services;
-using TagSeguranca.Api.Infrastructure.Persistence;
 
 namespace TagSeguranca.Api.Controllers;
 
@@ -15,12 +14,12 @@ public class RelatoriosController : BaseApiController
 
     public RelatoriosController(
         EscalaExcelService escalaExcelService,
-        TagDbContext context,
+        EscalaPdfService escalaPdfService,
         PagamentosExcelService pagamentosExcelService,
         RelatoriosPdfService relatoriosPdfService)
     {
         _escalaExcelService = escalaExcelService;
-        _escalaPdfService = new EscalaPdfService(context);
+        _escalaPdfService = escalaPdfService;
         _pagamentosExcelService = pagamentosExcelService;
         _relatoriosPdfService = relatoriosPdfService;
     }
@@ -58,9 +57,20 @@ public class RelatoriosController : BaseApiController
     public async Task<IActionResult> ExportarPagamentosExcel(
         [FromQuery] string? busca,
         [FromQuery] DateTime? dataInicio,
-        [FromQuery] DateTime? dataFim)
+        [FromQuery] DateTime? dataFim,
+        CancellationToken cancellationToken)
     {
-        var arquivo = await _pagamentosExcelService.GerarAsync(busca, dataInicio, dataFim);
+        var erroPeriodo = ValidarPeriodoPagamento(dataInicio, dataFim);
+        if (erroPeriodo is not null)
+        {
+            return ApiBadRequest(erroPeriodo);
+        }
+
+        var arquivo = await _pagamentosExcelService.GerarAsync(
+            busca,
+            dataInicio,
+            dataFim,
+            cancellationToken);
 
         var nomeArquivo = $"relatorio-pagamentos-{DateTime.Now:yyyyMMdd-HHmmss}.xlsx";
 
@@ -108,6 +118,12 @@ public class RelatoriosController : BaseApiController
         [FromQuery] DateTime? dataFim,
         CancellationToken cancellationToken)
     {
+        var erroPeriodo = ValidarPeriodoPagamento(dataInicio, dataFim);
+        if (erroPeriodo is not null)
+        {
+            return ApiBadRequest(erroPeriodo);
+        }
+
         var arquivo = await _relatoriosPdfService.GerarPagamentosAsync(
             busca,
             dataInicio,
@@ -128,6 +144,21 @@ public class RelatoriosController : BaseApiController
         if (!dataInicio.HasValue || !dataFim.HasValue)
         {
             return "Informe a data inicial e a data final para emitir o relatório de escala.";
+        }
+
+        if (dataInicio.Value.Date > dataFim.Value.Date)
+        {
+            return "A data inicial não pode ser maior que a data final.";
+        }
+
+        return null;
+    }
+
+    private static string? ValidarPeriodoPagamento(DateTime? dataInicio, DateTime? dataFim)
+    {
+        if (!dataInicio.HasValue || !dataFim.HasValue)
+        {
+            return "Informe a data inicial e a data final para emitir o relatório de pagamentos.";
         }
 
         if (dataInicio.Value.Date > dataFim.Value.Date)
