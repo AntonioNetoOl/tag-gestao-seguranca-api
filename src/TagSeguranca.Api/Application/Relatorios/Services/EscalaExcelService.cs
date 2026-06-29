@@ -34,7 +34,7 @@ public class EscalaExcelService
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Escala");
 
-        worksheet.Cell("A1").Value = "TAG GESTÃO DE SEGURANÇA";
+        worksheet.Cell("A1").Value = "SOLUCAO FACILITIES";
         worksheet.Range("A1:F1").Merge();
         worksheet.Cell("A1").Style.Font.Bold = true;
         worksheet.Cell("A1").Style.Font.FontSize = 18;
@@ -90,7 +90,7 @@ public class EscalaExcelService
             worksheet.Cell(linha, 1).Value = vinculo.Funcionario.NomeCompleto;
             worksheet.Cell(linha, 2).Value = vinculo.Funcionario.Rg;
             worksheet.Cell(linha, 3).Value = vinculo.Funcionario.Funcao;
-            worksheet.Cell(linha, 4).Value = "TAG";
+            worksheet.Cell(linha, 4).Value = "Solucao Facilities";
             worksheet.Cell(linha, 5).Value = evento.ValorDiaria;
             worksheet.Cell(linha, 6).Value = evento.ValorHoraExtra;
 
@@ -159,7 +159,7 @@ public class EscalaExcelService
         using var workbook = new XLWorkbook();
         var worksheet = workbook.Worksheets.Add("Escalas");
 
-        worksheet.Cell("A1").Value = "TAG GESTÃO DE SEGURANÇA";
+        worksheet.Cell("A1").Value = "SOLUCAO FACILITIES";
         worksheet.Range("A1:K1").Merge();
         worksheet.Cell("A1").Style.Font.Bold = true;
         worksheet.Cell("A1").Style.Font.FontSize = 18;
@@ -235,7 +235,7 @@ public class EscalaExcelService
         worksheet.Cell(linha, 6).Value = vinculo?.Funcionario.NomeCompleto ?? string.Empty;
         worksheet.Cell(linha, 7).Value = vinculo?.Funcionario.Rg ?? string.Empty;
         worksheet.Cell(linha, 8).Value = vinculo?.Funcionario.Funcao ?? string.Empty;
-        worksheet.Cell(linha, 9).Value = "TAG";
+        worksheet.Cell(linha, 9).Value = "Solucao Facilities";
         worksheet.Cell(linha, 10).Value = evento.ValorDiaria;
         worksheet.Cell(linha, 11).Value = evento.ValorHoraExtra;
 
