@@ -10,18 +10,18 @@ public class RelatoriosController : BaseApiController
     private readonly EscalaExcelService _escalaExcelService;
     private readonly EscalaPdfService _escalaPdfService;
     private readonly PagamentosExcelService _pagamentosExcelService;
-    private readonly RelatoriosPdfService _relatoriosPdfService;
+    private readonly PagamentosPdfService _pagamentosPdfService;
 
     public RelatoriosController(
         EscalaExcelService escalaExcelService,
         EscalaPdfService escalaPdfService,
         PagamentosExcelService pagamentosExcelService,
-        RelatoriosPdfService relatoriosPdfService)
+        PagamentosPdfService pagamentosPdfService)
     {
         _escalaExcelService = escalaExcelService;
         _escalaPdfService = escalaPdfService;
         _pagamentosExcelService = pagamentosExcelService;
-        _relatoriosPdfService = relatoriosPdfService;
+        _pagamentosPdfService = pagamentosPdfService;
     }
 
     [HttpGet("escalas/excel")]
@@ -124,7 +124,7 @@ public class RelatoriosController : BaseApiController
             return ApiBadRequest(erroPeriodo);
         }
 
-        var arquivo = await _relatoriosPdfService.GerarPagamentosAsync(
+        var arquivo = await _pagamentosPdfService.GerarAsync(
             busca,
             dataInicio,
             dataFim,
